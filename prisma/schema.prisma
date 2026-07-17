@@ -1,0 +1,392 @@
+datasource db {
+  provider = "postgresql"
+  // url      = env("DATABASE_URL") // Prisma 7+: move to prisma.config.ts
+}
+
+// ─────────────────────────────────────────────
+//  ENUMS
+// ─────────────────────────────────────────────
+
+enum UserRole {
+  CUSTOMER
+  STAFF
+  ADMIN
+}
+
+enum UserStatus {
+  Active
+  Banned
+}
+
+enum BookType {
+  Hardcover
+  EBook
+  Manga
+}
+
+enum StockStatus {
+  InStock
+  LowStock
+  OutOfStock
+}
+
+enum DiscountType {
+  percent
+  fixed
+  freeship
+}
+
+enum PromotionStatus {
+  Active
+  Expired
+  Disabled
+}
+
+enum OrderStatus {
+  PENDING      // รอชำระเงิน
+  VERIFYING    // ตรวจสอบชำระเงิน
+  PREPARING    // เตรียมการจัดส่ง
+  SHIPPING     // อยู่ระหว่างการจัดส่ง
+  COMPLETED    // สำเร็จ
+  CANCELLED    // ถูกยกเลิก
+  REFUNDED     // คืนเงินและคืนสินค้า
+}
+
+enum PaymentMethod {
+  promptpay
+  credit_card
+  bank_transfer
+  cod
+}
+
+enum ShippingMethod {
+  standard
+  express
+  digital
+}
+
+enum TicketStatus {
+  OPEN      // เปิด
+  PENDING   // รอดำเนินการ
+  CLOSED    // ปิดแล้ว
+}
+
+// ─────────────────────────────────────────────
+//  USER & AUTH
+// ─────────────────────────────────────────────
+
+model User {
+  id           String     @id @default(cuid())
+  name         String
+  email        String     @unique
+  passwordHash String     // แนะนำใช้ bcrypt/argon2 สำหรับการย้ายจาก btoa
+  role         UserRole   @default(CUSTOMER)
+  status       UserStatus @default(Active)
+  phone        String?
+  birthdate    DateTime?
+  address      String?    
+  profileImage String?    
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  orders        Order[]
+  tickets       Ticket[]
+  wishlistItems WishlistItem[]
+  cartItems     CartItem[]
+  reviews       Review[]
+  ebookProgress EbookProgress[]
+  library       UserLibrary[]   // คลังหนังสือส่วนตัว (E-book ที่ซื้อแล้ว)
+
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+// ─────────────────────────────────────────────
+//  CATALOG — Books, Categories, Publishers
+// ─────────────────────────────────────────────
+
+model Publisher {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  books Book[]
+
+  @@map("publishers")
+}
+
+model Category {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  books Book[]
+
+  @@map("categories")
+}
+
+model Book {
+  id          Int         @id @default(autoincrement())
+  title       String
+  author      String
+  description String?     @db.Text
+  isbn        String?
+  pages       Int?
+  publishDate String?     
+  bookType    BookType    @default(Hardcover)
+  price       Decimal     @db.Decimal(10, 2)
+  stock       Int         @default(0)
+  stockStatus StockStatus @default(InStock)
+  image       String?     
+  rating      Decimal?    @db.Decimal(3, 1)
+  reviewCount Int         @default(0) 
+  sampleData  Json?       // { type: "pdf"/"epub", chapters: [...] } สำหรับอ่านตัวอย่างก่อนซื้อ
+
+  publisherId Int?
+  categoryId  Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  publisher     Publisher?      @relation(fields: [publisherId], references: [id], onDelete: SetNull)
+  category      Category?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  reviews       Review[]
+  cartItems     CartItem[]
+  orderItems    OrderItem[]
+  wishlistItems WishlistItem[]
+  ebookProgress EbookProgress[]
+  libraryOwners UserLibrary[]   // เชื่อมโยงกับผู้ที่เป็นเจ้าของ E-book เล่มนี้
+
+  @@index([bookType])
+  @@index([categoryId])
+  @@index([publisherId])
+  @@index([stockStatus])
+  @@map("books")
+}
+
+model Review {
+  id        Int      @id @default(autoincrement())
+  rating    Int 
+  comment   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String?  
+  bookId Int
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  book Book  @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@index([bookId])
+  @@index([userId])
+  @@map("reviews")
+}
+
+// ─────────────────────────────────────────────
+//  PROMOTIONS / COUPONS
+// ─────────────────────────────────────────────
+
+model Promotion {
+  id           Int             @id @default(autoincrement())
+  name         String
+  code         String          @unique 
+  discountType DiscountType
+  value        Decimal         @db.Decimal(10, 2) 
+  status       PromotionStatus @default(Active)
+  
+  // ฟิลด์เพิ่มเติมเพื่อความสมบูรณ์ของระบบโปรโมชั่น
+  minPurchase  Decimal         @db.Decimal(10, 2) @default(0) // ยอดซื้อขั้นต่ำ
+  usageLimit   Int?            // จำกัดสิทธิ์การใช้รวม (null = ไม่จำกัด)
+  usedCount    Int             @default(0)                    // จำนวนครั้งที่ถูกใช้ไปแล้ว
+  endDate      DateTime?       
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orderCoupons OrderCoupon[]
+
+  @@index([code])
+  @@index([status])
+  @@map("promotions")
+}
+
+// ─────────────────────────────────────────────
+//  CART & WISHLIST
+// ─────────────────────────────────────────────
+
+model CartItem {
+  id        Int      @id @default(autoincrement())
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String   
+  bookId Int
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, bookId])
+  @@map("cart_items")
+}
+
+model WishlistItem {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  userId String   
+  bookId Int
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, bookId])
+  @@map("wishlist_items")
+}
+
+// ─────────────────────────────────────────────
+//  ORDERS & PAYMENTS
+// ─────────────────────────────────────────────
+
+model Order {
+  id              String         @id @default(cuid()) 
+  status          OrderStatus    @default(PENDING)
+  shippingMethod  ShippingMethod @default(standard)
+  paymentMethod   PaymentMethod  @default(promptpay)
+
+  recipientName   String
+  recipientPhone  String?
+  shippingAddress String         @db.Text
+
+  subtotal        Decimal        @db.Decimal(10, 2)
+  shippingFee     Decimal        @db.Decimal(10, 2) @default(0)
+  discountAmount  Decimal        @db.Decimal(10, 2) @default(0)
+  taxAmount       Decimal        @db.Decimal(10, 2) @default(0)
+  totalAmount     Decimal        @db.Decimal(10, 2)
+
+  slipUrl         String?        
+  paymentTime     DateTime?      
+  trackingNumber  String?        
+
+  userId          String?        
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  user            User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  items           OrderItem[]
+  coupons         OrderCoupon[]
+  tickets         Ticket[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id         Int      @id @default(autoincrement())
+  quantity   Int
+  unitPrice  Decimal  @db.Decimal(10, 2) 
+  bookTitle  String  
+  bookImage  String? 
+  bookType   BookType 
+
+  orderId String
+  bookId  Int?   
+
+  order Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  book  Book?  @relation(fields: [bookId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@index([bookId])
+  @@map("order_items")
+}
+
+model OrderCoupon {
+  id          Int      @id @default(autoincrement())
+  couponCode  String  
+  discountAmt Decimal  @db.Decimal(10, 2)
+
+  orderId     String
+  promotionId Int?   
+
+  order     Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  promotion Promotion? @relation(fields: [promotionId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@map("order_coupons")
+}
+
+// ─────────────────────────────────────────────
+//  E-BOOK LIBRARY & READING PROGRESS
+// ─────────────────────────────────────────────
+
+/// คลังหนังสือ E-book ส่วนตัวของลูกค้า (สิทธิ์การเข้าถึงหนังสือที่ซื้อแล้ว)
+model UserLibrary {
+  id        Int      @id @default(autoincrement())
+  purchaseAt DateTime @default(now())
+
+  userId    String
+  bookId    Int
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book      Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, bookId])
+  @@map("user_libraries")
+}
+
+/// ความคืบหน้าการอ่าน E-Book
+model EbookProgress {
+  id              Int      @id @default(autoincrement())
+  progressPercent Int      @default(0) // 0–100
+  currentChapter  Int?
+  lastReadAt      DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  userId String   
+  bookId Int
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, bookId])
+  @@index([userId])
+  @@map("ebook_progress")
+}
+
+// ─────────────────────────────────────────────
+//  SUPPORT TICKETS (ฝ่ายบริการลูกค้า)
+// ─────────────────────────────────────────────
+
+model Ticket {
+  id        String       @id // "TK-1234"
+  subject   String
+  message   String       @db.Text
+  status    TicketStatus @default(OPEN)
+
+  customerName String?
+
+  adminNote  String?   @db.Text
+  resolvedAt DateTime?
+
+  userId  String? 
+  orderId String? 
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  order Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status])
+  @@map("tickets")
+}
