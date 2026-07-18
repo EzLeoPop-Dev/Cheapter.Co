@@ -259,7 +259,7 @@ export function StaffPicksSection() {
   return (
     <section className="w-full max-w-[100vw] overflow-hidden py-16 mb-16 border-t border-stone-200/60 mt-4 relative">
       <div className="max-w-7xl mx-auto px-8 flex items-center justify-between mb-12">
-        <h2 className="text-2xl md:text-3xl font-bold text-stone-900 tracking-tight">Staff Picks</h2>
+        <h2 className="text-2xl md:text-3xl font-bold text-stone-900 tracking-tight">Book Picks</h2>
         {/* Navigation Arrows */}
         <div className="flex items-center gap-2 relative z-40">
           <button onClick={prevPack} className="w-10 h-10 rounded-full border border-stone-300 flex items-center justify-center text-stone-500 hover:text-stone-800 hover:border-stone-400 hover:bg-stone-50 transition-colors bg-white shadow-sm cursor-pointer">
