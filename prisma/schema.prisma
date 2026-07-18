@@ -1,3 +1,7 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider = "postgresql"
   // url      = env("DATABASE_URL") // Prisma 7+: move to prisma.config.ts
@@ -72,7 +76,7 @@ enum TicketStatus {
 }
 
 // ─────────────────────────────────────────────
-//  USER & AUTH
+//  USER & AUTH & ADDRESS
 // ─────────────────────────────────────────────
 
 model User {
@@ -84,13 +88,14 @@ model User {
   status       UserStatus @default(Active)
   phone        String?
   birthdate    DateTime?
-  address      String?    
-  profileImage String?    
+  
+  profileImage String?    @db.Text    
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
+  addresses     Address[]
   orders        Order[]
   tickets       Ticket[]
   wishlistItems WishlistItem[]
@@ -102,6 +107,26 @@ model User {
   @@index([email])
   @@index([role])
   @@map("users")
+}
+
+model Address {
+  id            Int      @id @default(autoincrement())
+  label         String   // เช่น 'บ้าน', 'ที่ทำงาน'
+  name          String
+  phone         String
+  streetAddress String
+  city          String
+  zipCode       String
+  isDefault     Boolean  @default(false)
+
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId]) // เพิ่ม index ให้ค้นหาที่อยู่ของ user ได้ไวขึ้น
+  @@map("addresses")
 }
 
 // ─────────────────────────────────────────────
@@ -290,12 +315,12 @@ model Order {
 }
 
 model OrderItem {
-  id         Int      @id @default(autoincrement())
-  quantity   Int
-  unitPrice  Decimal  @db.Decimal(10, 2) 
-  bookTitle  String  
-  bookImage  String? 
-  bookType   BookType 
+  id        Int      @id @default(autoincrement())
+  quantity  Int
+  unitPrice Decimal  @db.Decimal(10, 2) 
+  bookTitle String  
+  bookImage String? 
+  bookType  BookType 
 
   orderId String
   bookId  Int?   
@@ -377,8 +402,8 @@ model Ticket {
   adminNote  String?   @db.Text
   resolvedAt DateTime?
 
-  userId  String? 
-  orderId String? 
+  userId  String?  
+  orderId String?  
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
