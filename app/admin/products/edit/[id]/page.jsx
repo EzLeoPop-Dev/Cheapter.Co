@@ -1,7 +1,6 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { useLanguage } from '../../../../context/LanguageContext';
-import { useMockStore } from '../../../context/MockStoreContext';
+import { useLanguage } from '../../../context/LanguageContext';
 import { Image as ImageIcon, UploadCloud, ArrowLeft, Save, X, Book, Package, AlertCircle, Ban, Scan, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
@@ -12,9 +11,11 @@ import { Layers, Edit, Trash2 } from 'lucide-react';
 export default function AdminEditProductPage() {
   const { t } = useLanguage();
   const params = useParams();
-  const id = params?.id;
+  const id = Array.isArray(params?.id) ? params.id[0] : params?.id;
   
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [coverImage, setCoverImage] = useState(null);
   const [showScanner, setShowScanner] = useState(false);
   const [showDiscontinueConfirm, setShowDiscontinueConfirm] = useState(false);
@@ -37,40 +38,64 @@ export default function AdminEditProductPage() {
     chapters: []
   });
 
-  const { products, updateProduct } = useMockStore();
   const router = useRouter();
 
+  const mapDbTypeToUiType = (bookType) => {
+    if (bookType === 'EBook') return 'ebook';
+    if (bookType === 'Manga') return 'serial';
+    return 'physical';
+  };
+
+  const mapUiTypeToDbType = (type) => {
+    if (type === 'ebook') return 'EBook';
+    if (type === 'serial') return 'Manga';
+    return 'Hardcover';
+  };
+
   useEffect(() => {
-    if (id) {
-      const product = products.find(p => p.id === id);
-      if (product) {
+    const loadProduct = async () => {
+      if (!id) return;
+      setIsLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(`/api/admin/books/${id}`);
+        if (!res.ok) throw new Error('Failed to load product');
+        const data = await res.json();
+        const product = data?.book;
+
+        if (!product) {
+          router.push('/admin/products');
+          return;
+        }
+
         setFormData({
-          title: product.name || '',
+          title: product.title || '',
           author: product.author || '',
-          publisher: product.publisher || '',
+          publisher: product.publisherName || '',
           description: product.description || '',
           price: product.price || '',
-          cost: product.cost || '',
-          sku: product.sku || '',
-          barcode: product.barcode || '',
-          type: product.type || 'physical',
-          status: product.status || 'draft',
-          quantity: product.quantity || 0,
-          trialLimit: product.trialLimit || '',
-          chapters: product.chapters || []
+          cost: '',
+          sku: String(product.id ?? ''),
+          barcode: '',
+          type: mapDbTypeToUiType(product.bookType),
+          status: product.stock > 0 ? 'active' : 'draft',
+          quantity: product.stock || 0,
+          trialLimit: '',
+          chapters: []
         });
-        if (product.cover) {
-          setCoverImage(product.cover);
+        if (product.image) {
+          setCoverImage(product.image);
         }
-        if (!product.chapters) {
-          product.chapters = [];
-        }
-        setFormData(product);
-      } else {
-        router.push('/admin/products');
+      } catch (err) {
+        console.error(err);
+        setError('ไม่สามารถโหลดข้อมูลสินค้าได้');
+      } finally {
+        setIsLoading(false);
       }
-    }
-  }, [id, products, router]);
+    };
+
+    loadProduct();
+  }, [id, router]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -110,41 +135,67 @@ export default function AdminEditProductPage() {
     }));
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     if (e) e.preventDefault();
     setIsSaving(true);
-    
-    const updates = {
-      name: formData.title,
+
+    try {
+      const payload = {
+      title: formData.title,
       author: formData.author,
-      publisher: formData.publisher,
+      publisherName: formData.publisher,
       description: formData.description,
       price: Number(formData.price),
-      cost: Number(formData.cost),
-      sku: formData.sku,
-      barcode: formData.barcode,
-      type: formData.type,
-      status: formData.status,
-      chapters: formData.chapters,
-      cover: coverImage || 'https://placehold.co/120x180/f3f4f6/111827?text=Book'
-    };
+      image: coverImage || null,
+      bookType: mapUiTypeToDbType(formData.type),
+      };
 
-    setTimeout(() => {
-      updateProduct(id, updates);
+      const res = await fetch(`/api/admin/books/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.message || 'Failed to update product');
+      }
+
       setIsSaving(false);
       router.push('/admin/products');
-    }, 800);
+    } catch (err) {
+      console.error(err);
+      setIsSaving(false);
+      alert('ไม่สามารถบันทึกการแก้ไขได้');
+    }
   };
 
   const handleDiscontinue = () => {
-    setFormData(prev => ({ ...prev, status: 'discontinued' }));
+    setFormData(prev => ({ ...prev, status: 'draft' }));
     setShowDiscontinueConfirm(false);
-    // After changing status, automatically save
-    setTimeout(() => {
-        updateProduct(id, { status: 'discontinued' });
-        router.push('/admin/products');
-    }, 300);
   };
+
+  if (isLoading) {
+    return (
+      <div className="h-80 flex items-center justify-center">
+        <div className="animate-pulse flex flex-col items-center">
+          <div className="w-8 h-8 border-4 border-gray-200 border-t-gray-900 rounded-full animate-spin mb-4"></div>
+          <div className="text-gray-500 font-medium tracking-wide">Loading product...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-3xl mx-auto py-16 text-center">
+        <p className="text-sm text-red-500 font-semibold">{error}</p>
+        <Link href="/admin/products" className="inline-block mt-4 px-4 py-2 rounded-lg bg-gray-900 text-white font-semibold text-sm">
+          กลับไปหน้ารายการสินค้า
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 max-w-5xl mx-auto pb-12">
@@ -310,7 +361,7 @@ export default function AdminEditProductPage() {
             </div>
             {formData.type === 'physical' && (
               <div className="mb-5 p-4 bg-gray-50 border border-gray-200 rounded-xl flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                <AlertCircle className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
                 <div>
                   <label className="text-sm font-bold text-gray-700 block mb-1">จำนวนสต็อก (Quantity)</label>
                   <input 
@@ -542,7 +593,7 @@ export default function AdminEditProductPage() {
               />
               
               {coverImage ? (
-                <div className="relative aspect-[3/4] w-full">
+                <div className="relative aspect-3/4 w-full">
                   <img src={coverImage} alt="Cover Preview" className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                     <span className="text-white font-bold text-sm bg-black/50 px-3 py-1.5 rounded-lg">Change Image</span>
