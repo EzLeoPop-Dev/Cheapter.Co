@@ -1,0 +1,7 @@
+books_count=20
+latest_books:
+20 | Atomic Habits | James Clear
+19 | Dune | Frank Herbert
+18 | Kafka on the Shore | Haruki Murakami
+17 | Ikigai | Hector Garcia
+16 | Clean Code | Robert C. Martin
