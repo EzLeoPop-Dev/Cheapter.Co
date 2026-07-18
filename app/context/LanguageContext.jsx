@@ -25,7 +25,7 @@ const translations = {
     'layout.logout': 'ออกจากระบบ',
     'layout.title': 'Admin Workspace',
     'layout.subtitle': 'จัดการร้านค้าและลูกค้าของคุณอย่างมีประสิทธิภาพ',
-    'layout.storefront': 'ดูหน้าร้าน (Storefront)',
+    'layout.storefront': 'ดูหน้าร้าน',
 
     // Dashboard
     'dash.title': 'Dashboard',

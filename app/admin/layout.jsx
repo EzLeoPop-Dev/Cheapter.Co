@@ -20,18 +20,39 @@ import {
   Globe
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
-
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { signOut } from 'next-auth/react'; 
 
 function AdminLayoutInner({ children }) {
   const pathname = usePathname();
   const router = useRouter();
   const { lang, setLang, t } = useLanguage();
-  const { user, toggleRole, isLoading } = useAuth();
+  
+  const { user, isLoading } = useAuth();
+  const [dbUser, setDbUser] = useState(null);
+  // 👇 1. เพิ่ม State สำหรับเช็คว่าดึงข้อมูลจาก DB เสร็จหรือยัง (ตั้งต้นเป็น true เพื่อให้หมุนรอเลย)
+  const [isFetchingProfile, setIsFetchingProfile] = useState(true);
 
-  const handleLogout = (e) => {
+  useEffect(() => {
+    if (user) {
+      setIsFetchingProfile(true); // เริ่มดึงข้อมูล
+      fetch('/api/profile')
+        .then(res => res.json())
+        .then(data => {
+          if (!data.error) setDbUser(data);
+        })
+        .catch(err => console.error("Failed to fetch user DB:", err))
+        .finally(() => {
+          setIsFetchingProfile(false); // ดึงข้อมูลเสร็จแล้ว (ไม่ว่าจะสำเร็จหรือพัง) ให้เลิกโหลด
+        });
+    } else if (!isLoading && !user) {
+      setIsFetchingProfile(false); // ถ้าโหลด Auth เสร็จแล้วแต่ไม่มี user ก็เลิกโหลด
+    }
+  }, [user, isLoading]);
+
+  const handleLogout = async (e) => {
     e.preventDefault();
-    router.push('/auth/login');
+    await signOut({ callbackUrl: '/auth/login' }); 
   };
 
   const toggleLanguage = () => {
@@ -80,7 +101,8 @@ function AdminLayoutInner({ children }) {
     };
   }).filter(group => group.items.length > 0);
 
-  if (isLoading || !user) {
+  // 👇 2. เพิ่ม isFetchingProfile เข้าไปในเงื่อนไข เพื่อให้รอข้อมูลจาก DB ก่อนค่อยแสดง Layout
+  if (isLoading || isFetchingProfile || !user) {
     return (
       <div className="min-h-screen bg-[#f8f9fa] flex items-center justify-center">
         <div className="animate-pulse flex flex-col items-center">
@@ -91,7 +113,12 @@ function AdminLayoutInner({ children }) {
     );
   }
 
-  const avatarLetter = user.name ? user.name.charAt(0).toUpperCase() : 'A';
+  const currentName = dbUser?.name || user?.name || 'Admin';
+  const currentEmail = dbUser?.email || user?.email || '';
+  const currentRole = dbUser?.role || user?.role || '';
+  const profileImage = dbUser?.profileImage || user?.image || user?.profileImage;
+
+  const avatarLetter = currentName ? currentName.charAt(0).toUpperCase() : 'A';
 
   return (
     <div className="min-h-screen bg-[#f0f2f5] text-gray-800 font-sans flex overflow-hidden">
@@ -100,7 +127,7 @@ function AdminLayoutInner({ children }) {
         <div className="h-20 flex items-center px-8 border-b border-gray-100">
           <span className="text-2xl font-black tracking-tighter text-[#1a1a1a]">CHEAPTER<span className="text-gray-400 font-medium">.CO</span></span>
           <span className="ml-3 text-[10px] font-bold bg-[#1a1a1a] text-white px-2 py-1 rounded uppercase tracking-wider">
-            {user.role}
+            {currentRole}
           </span>
         </div>
 
@@ -143,12 +170,16 @@ function AdminLayoutInner({ children }) {
         <div className="p-4 border-t border-gray-100 bg-gray-50/50">
           <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between mb-3">
             <div className="flex items-center overflow-hidden">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-gray-900 to-gray-700 flex items-center justify-center text-white font-bold text-sm shadow-inner flex-shrink-0">
-                {avatarLetter}
+              <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-gray-900 to-gray-700 flex items-center justify-center text-white font-bold text-sm shadow-inner flex-shrink-0 overflow-hidden relative">
+                {profileImage && profileImage.trim() !== "" ? (
+                  <img src={profileImage} alt={currentName} className="w-full h-full object-cover" />
+                ) : (
+                  avatarLetter
+                )}
               </div>
               <div className="ml-3 truncate">
-                <p className="text-sm font-bold text-gray-900 truncate">{user.name}</p>
-                <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                <p className="text-sm font-bold text-gray-900 truncate">{currentName}</p>
+                <p className="text-xs text-gray-500 truncate">{currentEmail}</p>
               </div>
             </div>
           </div>
@@ -171,14 +202,6 @@ function AdminLayoutInner({ children }) {
             <p className="text-xs text-gray-500 font-medium mt-0.5">{t('layout.subtitle')}</p>
           </div>
           <div className="flex items-center space-x-5">
-            <button 
-              onClick={toggleRole}
-              className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-full transition-colors text-xs font-bold uppercase tracking-wider border border-blue-200"
-              title="สลับสิทธิ์การใช้งาน (Admin/Staff)"
-            >
-              <Users className="w-4 h-4" />
-              {user.role}
-            </button>
             <button 
               onClick={toggleLanguage}
               className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full transition-colors text-xs font-bold uppercase tracking-wider"
