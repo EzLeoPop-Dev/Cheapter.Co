@@ -45,7 +45,7 @@ const CouponCard = ({ coupon, collected, copiedCode, handleCollect, index }: any
   const isCopied = copiedCode === coupon.code;
   
   // Dynamic Color Themes based on discount type
-  const theme = {
+  const themes = {
     percent: {
       leftBg: "bg-[#fdf5e6]",
       borderDashed: "border-[#d2bba0]",
@@ -85,7 +85,9 @@ const CouponCard = ({ coupon, collected, copiedCode, handleCollect, index }: any
       collectedBorder: "border-[#4a7c59]",
       collectedText: "text-[#4a7c59]"
     }
-  }[coupon.discountType as 'percent' | 'fixed' | 'freeship'] || theme.percent;
+  };
+  
+  const theme = themes[coupon.discountType as 'percent' | 'fixed' | 'freeship'] || themes.percent;
 
   return (
     <motion.div

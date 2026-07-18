@@ -1,7 +1,7 @@
 "use client";
 
 import { Navbar } from "@/app/components/Navbar";
-import { ShoppingCart, Heart, ArrowLeft, Star, ChevronDown, Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { ShoppingCart, Heart, ArrowLeft, Star, ChevronDown, Check, ChevronLeft, ChevronRight, Quote } from "lucide-react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useState, useMemo, useEffect } from "react";
