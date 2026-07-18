@@ -22,6 +22,7 @@ enum BookType {
   Hardcover
   EBook
   Manga
+  Pack
 }
 
 enum StockStatus {
@@ -161,6 +162,8 @@ model Book {
   wishlistItems WishlistItem[]
   ebookProgress EbookProgress[]
   libraryOwners UserLibrary[]   // เชื่อมโยงกับผู้ที่เป็นเจ้าของ E-book เล่มนี้
+  packItems       BookPackItem[] @relation("PackToItems")
+  includedInPacks BookPackItem[] @relation("ItemToPack")
 
   @@index([bookType])
   @@index([categoryId])
@@ -389,4 +392,24 @@ model Ticket {
   @@index([userId])
   @@index([status])
   @@map("tickets")
+}
+
+// ─────────────────────────────────────────────
+//  BOOK PACKS
+// ─────────────────────────────────────────────
+
+model BookPackItem {
+  id       Int  @id @default(autoincrement())
+  quantity Int  @default(1)
+  
+  packId   Int
+  bookId   Int
+
+  pack     Book @relation("PackToItems", fields: [packId], references: [id], onDelete: Cascade)
+  book     Book @relation("ItemToPack", fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([packId, bookId])
+  @@index([packId])
+  @@index([bookId])
+  @@map("book_pack_items")
 }
