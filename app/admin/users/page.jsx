@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { Search, Shield, UserX, UserCheck, Mail, Calendar, MoreVertical, Filter, UserPlus } from 'lucide-react';
-import { useLanguage } from '../context/LanguageContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function AdminUsersPage() {
   const { t } = useLanguage();

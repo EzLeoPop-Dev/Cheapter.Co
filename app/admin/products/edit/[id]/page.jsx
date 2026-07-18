@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { useLanguage } from '../../../context/LanguageContext';
+import { useLanguage } from '../../../../context/LanguageContext';
 import { useMockStore } from '../../../context/MockStoreContext';
 import { Image as ImageIcon, UploadCloud, ArrowLeft, Save, X, Book, Package, AlertCircle, Ban, Scan, Plus } from 'lucide-react';
 import Link from 'next/link';

@@ -7,10 +7,18 @@ import { CategoryNav } from "./components/CategoryNav";
 import { DiscountMarquee } from "./components/DiscountMarquee";
 import { RecommendedSection, BestSellersSection, StaffPicksSection } from "./components/BookSections";
 import { PromotionSection } from "./components/PromotionSection";
+import { FlyingBooks } from "./components/FlyingBooks";
+import { useLanguage } from "./context/LanguageContext";
+
 export default function Home() {
+  const { t } = useLanguage();
+
   return (
-    <div className="min-h-screen bg-[#faf8f4] flex flex-col font-sans text-stone-800 overflow-hidden">
+    <div className="min-h-screen bg-[#faf8f4] flex flex-col font-sans text-stone-800 overflow-hidden relative">
       <Navbar />
+
+      {/* Flying Books Parallax Background */}
+      <FlyingBooks />
 
       {/* Promo Banner */}
       <motion.div 
@@ -19,7 +27,7 @@ export default function Home() {
         transition={{ duration: 0.5 }}
         className="w-full bg-[#e6dbcc] text-center py-2 text-xs font-semibold tracking-wider text-amber-900"
       >
-        Free shipping on orders over $100
+        {t('home.promoBanner')}
       </motion.div>
 
       {/* Main Content */}
@@ -33,8 +41,8 @@ export default function Home() {
             transition={{ duration: 0.8, delay: 0.2 }}
             className="text-5xl md:text-6xl lg:text-[72px] leading-[1.1] font-bold text-stone-900 tracking-tight"
           >
-            Find the stories<br />
-            that <span className="font-serif italic text-amber-800/90 font-medium">live and breathe.</span>
+            {t('home.heroTitle1')}<br />
+            {t('home.heroTitle2')} <span className="font-serif italic text-amber-800/90 font-medium">{t('home.heroTitle3')}</span>
           </motion.h1>
 
           <motion.p 
@@ -43,7 +51,7 @@ export default function Home() {
             transition={{ duration: 0.8, delay: 0.4 }}
             className="text-lg md:text-xl text-stone-500 max-w-md leading-relaxed"
           >
-            Curated literature for the wandering mind. Discover our latest collection of tactile, meaningful reads selected by independent booksellers.
+            {t('home.heroSubtitle')}
           </motion.p>
 
           <motion.div 
@@ -53,10 +61,10 @@ export default function Home() {
             className="flex flex-wrap items-center gap-4 pt-4"
           >
             <button className="bg-[#8b5a45] hover:bg-[#724a38] text-white px-8 py-4 text-sm font-bold tracking-wider rounded-md transition-all shadow-md hover:shadow-lg">
-              Explore Catalog
+              {t('home.btnExplore')}
             </button>
             <button className="bg-transparent hover:bg-stone-200/50 text-[#8b5a45] border border-stone-200 px-8 py-4 text-sm font-bold tracking-wider rounded-md transition-all">
-              Read the Editorial
+              {t('home.btnEditorial')}
             </button>
           </motion.div>
         </div>
@@ -74,16 +82,44 @@ export default function Home() {
 
 
       {/* Recommended Section */}
-      <RecommendedSection />
+      <motion.div
+        initial={{ opacity: 0, y: 60 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-100px" }}
+        transition={{ duration: 0.8, ease: "easeOut" }}
+      >
+        <RecommendedSection />
+      </motion.div>
       
       {/* Promotion Section */}
-      <PromotionSection />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        whileInView={{ opacity: 1, scale: 1 }}
+        viewport={{ once: true, margin: "-100px" }}
+        transition={{ duration: 0.8, ease: "easeOut" }}
+      >
+        <PromotionSection />
+      </motion.div>
 
       {/* Best Sellers Section */}
-      <BestSellersSection />
+      <motion.div
+        initial={{ opacity: 0, y: 60 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-100px" }}
+        transition={{ duration: 0.8, ease: "easeOut" }}
+      >
+        <BestSellersSection />
+      </motion.div>
 
       {/* Staff Picks Section */}
-      <StaffPicksSection />
+      <motion.div
+        initial={{ opacity: 0, y: 60 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-100px" }}
+        transition={{ duration: 0.8, ease: "easeOut" }}
+      >
+        <StaffPicksSection />
+      </motion.div>
 
       {/* Background decoration */}
       <div 

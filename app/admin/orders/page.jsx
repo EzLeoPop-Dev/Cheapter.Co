@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useMemo, useState } from 'react';
 import { Search, Filter, Printer, ExternalLink, PackageCheck, Eye, CreditCard, Box, Truck, CheckCircle2 } from 'lucide-react';
-import { useLanguage } from '../context/LanguageContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function AdminOrdersPage() {
   const { t } = useLanguage();

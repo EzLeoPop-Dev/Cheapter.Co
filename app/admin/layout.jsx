@@ -19,7 +19,7 @@ import {
   Bell,
   Globe
 } from 'lucide-react';
-import { LanguageProvider, useLanguage } from './context/LanguageContext';
+import { useLanguage } from '../context/LanguageContext';
 
 import { AuthProvider, useAuth } from './context/AuthContext';
 
@@ -45,6 +45,7 @@ function AdminLayoutInner({ children }) {
     ]},
     { category: t('layout.storeManagement'), items: [
       { name: t('layout.products'), path: '/admin/products', icon: BookOpen },
+      { name: t('layout.bookPacks'), path: '/admin/book-packs', icon: PackageSearch },
       { name: t('layout.orders'), path: '/admin/orders', icon: ShoppingBag },
       { name: t('layout.purchaseOrders'), path: '/admin/purchase-orders', icon: ShoppingBag },
       { name: t('layout.stock'), path: '/admin/stock', icon: PackageSearch },
@@ -62,6 +63,7 @@ function AdminLayoutInner({ children }) {
 
   const staffAllowedPaths = [
     '/admin/products',
+    '/admin/book-packs',
     '/admin/orders',
     '/admin/stock',
     '/admin/ebooks',
@@ -212,9 +214,7 @@ function AdminLayoutInner({ children }) {
 export default function AdminLayout({ children }) {
   return (
     <AuthProvider>
-      <LanguageProvider>
-        <AdminLayoutInner>{children}</AdminLayoutInner>
-      </LanguageProvider>
+      <AdminLayoutInner>{children}</AdminLayoutInner>
     </AuthProvider>
   );
 }

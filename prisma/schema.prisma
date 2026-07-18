@@ -104,6 +104,7 @@ model User {
   reviews       Review[]
   ebookProgress EbookProgress[]
   library       UserLibrary[]   // คลังหนังสือส่วนตัว (E-book ที่ซื้อแล้ว)
+  userCoupons   UserCoupon[]    // คูปองที่ผู้ใช้เก็บไว้
 
   @@index([email])
   @@index([role])
@@ -237,10 +238,28 @@ model Promotion {
   updatedAt DateTime @updatedAt
 
   orderCoupons OrderCoupon[]
+  userCoupons  UserCoupon[]
 
   @@index([code])
   @@index([status])
   @@map("promotions")
+}
+
+model UserCoupon {
+  id          Int       @id @default(autoincrement())
+  userId      String
+  promotionId Int
+  isUsed      Boolean   @default(false)
+  collectedAt DateTime  @default(now())
+  usedAt      DateTime?
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  promotion   Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, promotionId])
+  @@index([userId])
+  @@index([promotionId])
+  @@map("user_coupons")
 }
 
 // ─────────────────────────────────────────────

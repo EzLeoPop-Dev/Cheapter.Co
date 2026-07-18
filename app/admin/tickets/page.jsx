@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, Ticket, AlertCircle, Clock, CheckCircle2, MoreVertical, SearchX } from 'lucide-react';
-import { useLanguage } from '../context/LanguageContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function AdminTicketsPage() {
   const { t } = useLanguage();

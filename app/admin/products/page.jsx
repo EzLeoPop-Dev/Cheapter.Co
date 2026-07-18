@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useMemo } from 'react';
-import { useLanguage } from '../context/LanguageContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { useMockStore } from '../context/MockStoreContext';
 import { useAuth } from '../context/AuthContext';
 import { Search, Plus, Book, Package, Edit, Trash2, ExternalLink, ShoppingCart, Layers } from 'lucide-react';

@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import { TrendingUp, Users, ShoppingCart, Eye, ArrowUpRight, ArrowDownRight } from 'lucide-react';
-import { useLanguage } from '../context/LanguageContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function AdminDashboardPage() {
   const { t } = useLanguage();

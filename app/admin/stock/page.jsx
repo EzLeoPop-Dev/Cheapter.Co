@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Search, PackagePlus, AlertTriangle, CheckCircle2, Box, Filter, Package, DollarSign, BarChart3, X, Plus, Minus, ArrowUpDown, History, Settings2 } from 'lucide-react';
 import Link from 'next/link';
-import { useLanguage } from '../context/LanguageContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function AdminStockPage() {
   const { t } = useLanguage();
