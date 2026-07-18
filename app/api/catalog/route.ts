@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server";
-import type { Prisma } from "@/src/generated/prisma/client";
-import type { BookType } from "@/src/generated/prisma/enums";
+import type { Prisma, BookType } from "@prisma/client";
 
 import { prisma } from "@/src/lib/prisma";
 
@@ -34,7 +33,7 @@ function parseFormats(value: string | null): BookType[] {
 
   return rawFormats.filter(
     (format): format is BookType =>
-      format === "Hardcover" || format === "EBook" || format === "Manga",
+      format === "Hardcover" || format === "EBook" || format === "Manga" || format === "Pack",
   );
 }
 
@@ -110,9 +109,11 @@ export async function GET(request: NextRequest) {
 
     if (category) {
       where.category = {
-        name: {
-          equals: category,
-          mode: "insensitive",
+        is: {
+          name: {
+            equals: category,
+            mode: "insensitive",
+          },
         },
       };
     }
