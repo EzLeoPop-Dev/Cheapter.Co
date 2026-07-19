@@ -5,7 +5,7 @@ import { Image as ImageIcon, ChevronLeft, ChevronRight, ShoppingCart, Star } fro
 import Link from "next/link";
 
 type Book = {
-  id: string;
+  id: string | number;
   title: string;
   author: string;
   price: string;
@@ -13,6 +13,7 @@ type Book = {
   reviews?: string;
   colorClass?: string;
   imageUrl?: string;
+  stock?: number;
 };
 
 const mockBooks: Book[] = [
@@ -84,9 +85,9 @@ const bundlePacks = [
 
 function BookCard({ book }: { book: Book }) {
   return (
-    <Link href={`/books/${book.id}`} className="flex flex-col gap-3 min-w-[160px] w-[160px] md:min-w-[180px] md:w-[180px] relative group cursor-pointer block">
+    <Link href={`/books/${book.id}`} className="flex flex-col gap-3 min-w-40 w-40 md:min-w-45 md:w-45 relative group cursor-pointer">
       {/* Book Cover */}
-      <div className={`w-full aspect-[2/3] rounded-md shadow-md overflow-hidden group-hover:-translate-y-2 group-hover:shadow-xl transition-all duration-300 relative z-10 ${!book.imageUrl ? (book.colorClass || 'bg-stone-800') : 'bg-stone-200'}`}>
+      <div className={`w-full aspect-2/3 rounded-md shadow-md overflow-hidden group-hover:-translate-y-2 group-hover:shadow-xl transition-all duration-300 relative z-10 ${!book.imageUrl ? (book.colorClass || 'bg-stone-800') : 'bg-stone-200'}`}>
         {book.imageUrl ? (
           <img src={book.imageUrl} alt={book.title} className="w-full h-full object-cover" />
         ) : (
@@ -96,7 +97,7 @@ function BookCard({ book }: { book: Book }) {
           </div>
         )}
         {/* spine */}
-        <div className="absolute left-0 top-0 bottom-0 w-[8%] bg-gradient-to-r from-black/40 to-transparent"></div>
+        <div className="absolute left-0 top-0 bottom-0 w-[8%] bg-linear-to-r from-black/40 to-transparent"></div>
         <div className="absolute left-0 top-0 bottom-0 w-[2%] bg-white/20"></div>
       </div>
 
@@ -133,7 +134,7 @@ function BookCard({ book }: { book: Book }) {
 
 function BestSellerCard({ book, rank }: { book: Book; rank: number }) {
   return (
-    <Link href={`/books/${book.id}`} className="flex flex-col gap-4 min-w-[240px] w-[240px] md:min-w-[280px] md:w-[280px] relative group cursor-pointer pl-12 pt-4 block">
+    <Link href={`/books/${book.id}`} className="flex flex-col gap-4 min-w-60 w-60 md:min-w-70 md:w-70 relative group cursor-pointer pl-12 pt-4">
       {/* Large number in front */}
       <div 
         className="absolute -left-2 top-[5%] text-[90px] md:text-[110px] leading-none font-black text-[#b46b45] drop-shadow-lg z-30 select-none tracking-tighter italic pointer-events-none transition-all duration-500 ease-in-out group-hover:opacity-30 group-hover:-z-10 group-hover:-translate-x-4 group-hover:scale-95"       >
@@ -143,7 +144,7 @@ function BestSellerCard({ book, rank }: { book: Book; rank: number }) {
       {/* Book Cover Container */}
       <div className="relative z-10">
         {/* Book Cover */}
-        <div className={`w-[160px] md:w-[180px] aspect-[2/3] rounded-md shadow-lg overflow-hidden group-hover:-translate-y-2 group-hover:shadow-xl transition-all duration-300 relative z-10 ${!book.imageUrl ? (book.colorClass || 'bg-stone-800') : 'bg-stone-200'}`}>
+        <div className={`w-40 md:w-45 aspect-2/3 rounded-md shadow-lg overflow-hidden group-hover:-translate-y-2 group-hover:shadow-xl transition-all duration-300 relative z-10 ${!book.imageUrl ? (book.colorClass || 'bg-stone-800') : 'bg-stone-200'}`}>
           {book.imageUrl ? (
             <img src={book.imageUrl} alt={book.title} className="w-full h-full object-cover" />
           ) : (
@@ -153,13 +154,13 @@ function BestSellerCard({ book, rank }: { book: Book; rank: number }) {
             </div>
           )}
           {/* spine */}
-          <div className="absolute left-0 top-0 bottom-0 w-[8%] bg-gradient-to-r from-black/40 to-transparent"></div>
+          <div className="absolute left-0 top-0 bottom-0 w-[8%] bg-linear-to-r from-black/40 to-transparent"></div>
           <div className="absolute left-0 top-0 bottom-0 w-[2%] bg-white/20"></div>
         </div>
       </div>
 
       {/* Book Info */}
-      <div className="flex flex-col gap-0.5 z-10 mt-3 w-[160px] md:w-[180px]">
+      <div className="flex flex-col gap-0.5 z-10 mt-3 w-40 md:w-45">
         {/* Rating */}
         <div className="flex items-center gap-1.5 mb-1.5">
           <Star size={12} className="fill-amber-500 text-amber-500" />
@@ -189,7 +190,7 @@ function BestSellerCard({ book, rank }: { book: Book; rank: number }) {
   );
 }
 
-export function RecommendedSection() {
+export function RecommendedSection({ books = mockBooks }: { books?: Book[] }) {
   return (
     <section className="w-full max-w-7xl mx-auto px-8 pt-12 pb-4">
       <div className="flex items-end justify-between mb-8">
@@ -200,7 +201,7 @@ export function RecommendedSection() {
       </div>
 
       <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide snap-x">
-        {mockBooks.map((book) => (
+        {books.map((book) => (
           <div key={book.id} className="snap-start">
             <BookCard book={book} />
           </div>
@@ -210,7 +211,7 @@ export function RecommendedSection() {
   );
 }
 
-export function BestSellersSection() {
+export function BestSellersSection({ books = bestSellers }: { books?: Book[] }) {
   return (
     <section className="w-full max-w-7xl mx-auto px-8 pt-4 pb-16 mb-10 overflow-hidden relative">
       <div className="flex items-center justify-between mb-12">
@@ -228,7 +229,7 @@ export function BestSellersSection() {
       </div>
 
       <div className="flex gap-8 overflow-x-auto pb-10 scrollbar-hide snap-x pt-6">
-        {bestSellers.map((book, index) => (
+        {books.map((book, index) => (
           <div key={book.id} className="snap-start shrink-0">
             <BestSellerCard book={book} rank={index + 1} />
           </div>
@@ -271,7 +272,7 @@ export function StaffPicksSection() {
         </div>
       </div>
 
-      <div className="relative h-[850px] sm:h-[650px] md:h-[550px] max-w-7xl mx-auto flex items-center justify-center perspective-[1000px]">
+      <div className="relative h-212.5 sm:h-162.5 md:h-137.5 max-w-7xl mx-auto flex items-center justify-center perspective-[1000px]">
         {bundlePacks.map((pack, index) => {
           const isActive = index === activeIndex;
           let position = "translate-x-full opacity-0 scale-75";
@@ -300,7 +301,7 @@ export function StaffPicksSection() {
               <div className={`flex flex-col md:flex-row gap-8 md:gap-12 items-start bg-white/70 p-6 md:p-8 rounded-2xl border border-stone-100 shadow-xl relative backdrop-blur-md transition-all ${!isActive ? 'pointer-events-none' : ''}`}>
                 
                 {/* Left Side: Image Carousel with Badge */}
-                <div className="relative shrink-0 w-full max-w-[260px] mx-auto md:mx-0">
+                <div className="relative shrink-0 w-full max-w-65 mx-auto md:mx-0">
                   <div className="absolute -top-6 -left-4 bg-[#b46b45] text-white px-4 py-1.5 rounded-md font-bold text-[12px] shadow-md z-20 border border-[#965431]">
                     Staff Pick
                   </div>
@@ -308,7 +309,7 @@ export function StaffPicksSection() {
                   <div className="bg-[#f5f3ee] rounded-xl p-3 shadow-sm border border-[#e6dbcc] relative z-10 w-full">
                     <div className="flex overflow-x-auto snap-x scrollbar-hide rounded-lg" style={{ scrollbarWidth: 'none' }}>
                       {pack.images.map((src, idx) => (
-                        <div key={idx} className="snap-center shrink-0 w-full aspect-[4/5] relative group">
+                        <div key={idx} className="snap-center shrink-0 w-full aspect-4/5 relative group">
                           <img src={src} alt={`${pack.title} ${idx + 1}`} className="w-full h-full object-cover rounded-lg shadow-sm" />
                         </div>
                       ))}
@@ -334,7 +335,7 @@ export function StaffPicksSection() {
                   </p>
 
                   {/* List of Books in Bundle */}
-                  <div className="mb-6 flex flex-col gap-2 overflow-y-auto max-h-[160px] pr-2 scrollbar-thin text-left">
+                  <div className="mb-6 flex flex-col gap-2 overflow-y-auto max-h-40 pr-2 scrollbar-thin text-left">
                     <h4 className="text-xs font-bold text-stone-500 uppercase tracking-wider mb-1">Includes {pack.books.length} Books:</h4>
                     {pack.books.map((book) => (
                       <div key={book.id} className="flex gap-3 items-center bg-white/60 p-2 rounded-lg border border-stone-100 hover:bg-white hover:shadow-sm transition-all">

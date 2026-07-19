@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useMemo } from 'react';
-import { useLanguage } from '../../../context/LanguageContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { useMockStore } from '../../context/MockStoreContext';
 import { Search, ChevronRight, CheckCircle2, AlertTriangle, ArrowLeft, PackageCheck, Truck, ClipboardList, Printer, DollarSign } from 'lucide-react';
 import Link from 'next/link';
@@ -73,9 +73,23 @@ export default function AdminStockReceivePage() {
     };
   }, [receiveItems]);
 
-  const handleConfirmSave = () => {
+  const handleConfirmSave = async () => {
     setIsSaving(true);
-    setTimeout(() => {
+    try {
+      const stockUpdates = receiveItems.filter((item) => item.goodQty > 0);
+      await Promise.all(stockUpdates.map(async (item) => {
+        if (!item.bookId) throw new Error(`No stock book is linked to ${item.name}.`);
+
+        const response = await fetch('/api/admin/stock', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bookId: item.bookId, quantity: item.goodQty, mode: 'add' }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Unable to add received stock.');
+        return data;
+      }));
+
       // Generate GRN
       const grn = `GRN-${Date.now().toString().slice(-8)}`;
       setGrnNumber(grn);
@@ -97,9 +111,12 @@ export default function AdminStockReceivePage() {
       });
       setMovementLogs(logs);
 
-      setIsSaving(false);
       setStep(4);
-    }, 1200);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Unable to save received stock.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const poTotalValue = (po) => po.items.reduce((a, i) => a + (i.ordered * i.cost), 0);
