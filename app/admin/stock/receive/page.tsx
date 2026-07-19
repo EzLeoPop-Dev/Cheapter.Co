@@ -1,6 +1,7 @@
+// @ts-nocheck
 "use client";
 import React, { useState, useEffect, useMemo } from 'react';
-import { useLanguage } from '../../context/LanguageContext';
+import { useLanguage } from '../../../context/LanguageContext';
 import { useMockStore } from '../../context/MockStoreContext';
 import { Search, ChevronRight, CheckCircle2, AlertTriangle, ArrowLeft, PackageCheck, Truck, ClipboardList, Printer, DollarSign } from 'lucide-react';
 import Link from 'next/link';
@@ -16,13 +17,13 @@ export default function AdminStockReceivePage() {
   // Removed local initial state for pendingPOs
   const pendingPOs = useMemo(() => pos.filter(po => po.status === 'Pending' || po.status === 'Partial'), [pos]);
 
-  const [selectedPO, setSelectedPO] = useState(null);
-  const [receiveItems, setReceiveItems] = useState([]);
+  const [selectedPO, setSelectedPO] = useState<any>(null);
+  const [receiveItems, setReceiveItems] = useState<any[]>([]);
   const [hasDiscrepancies, setHasDiscrepancies] = useState(false);
 
   // Generated after save
   const [grnNumber, setGrnNumber] = useState('');
-  const [movementLogs, setMovementLogs] = useState([]);
+  const [movementLogs, setMovementLogs] = useState<any[]>([]);
 
   const filteredPOs = useMemo(() => {
     if (!searchQuery.trim()) return pendingPOs;

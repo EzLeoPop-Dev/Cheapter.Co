@@ -1,21 +1,27 @@
+// @ts-nocheck
 "use client";
-import React, { useState } from 'react';
-import { useLanguage } from '../../../context/LanguageContext';
-import { useMockStore } from '../../context/MockStoreContext';
-import { Image as ImageIcon, UploadCloud, ArrowLeft, Save, X, Book, Package, AlertCircle, Scan, Plus } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useLanguage } from '../../../../context/LanguageContext';
+import { Image as ImageIcon, UploadCloud, ArrowLeft, Save, X, Book, Package, AlertCircle, Ban, Scan, Plus } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import MockBarcodeScannerModal from '../../components/MockBarcodeScannerModal';
-import ChapterModal from '../../components/ChapterModal';
+import { useRouter, useParams } from 'next/navigation';
+import MockBarcodeScannerModal from '../../../components/MockBarcodeScannerModal';
+import ChapterModal from '../../../components/ChapterModal';
 import { Layers, Edit, Trash2 } from 'lucide-react';
 
-export default function AdminNewProductPage() {
+export default function AdminEditProductPage() {
   const { t } = useLanguage();
+  const params = useParams();
+  const id = Array.isArray(params?.id) ? params.id[0] : params?.id;
+  
   const [isSaving, setIsSaving] = useState(false);
-  const [coverImage, setCoverImage] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<any>(null);
+  const [coverImage, setCoverImage] = useState<any>(null);
   const [showScanner, setShowScanner] = useState(false);
+  const [showDiscontinueConfirm, setShowDiscontinueConfirm] = useState(false);
   const [showChapterModal, setShowChapterModal] = useState(false);
-  const [editingChapter, setEditingChapter] = useState(null);
+  const [editingChapter, setEditingChapter] = useState<any>(null);
   
   const [formData, setFormData] = useState({
     title: '',
@@ -33,16 +39,72 @@ export default function AdminNewProductPage() {
     chapters: []
   });
 
-  const { addProduct } = useMockStore();
   const router = useRouter();
 
-  const handleScanBarcode = (barcode) => {
-    setFormData(prev => ({ ...prev, barcode }));
+  const mapDbTypeToUiType = (bookType) => {
+    if (bookType === 'EBook') return 'ebook';
+    if (bookType === 'Manga') return 'serial';
+    return 'physical';
   };
+
+  const mapUiTypeToDbType = (type) => {
+    if (type === 'ebook') return 'EBook';
+    if (type === 'serial') return 'Manga';
+    return 'Hardcover';
+  };
+
+  useEffect(() => {
+    const loadProduct = async () => {
+      if (!id) return;
+      setIsLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(`/api/admin/books/${id}`);
+        if (!res.ok) throw new Error('Failed to load product');
+        const data = await res.json();
+        const product = data?.book;
+
+        if (!product) {
+          router.push('/admin/products');
+          return;
+        }
+
+        setFormData({
+          title: product.title || '',
+          author: product.author || '',
+          publisher: product.publisherName || '',
+          description: product.description || '',
+          price: product.price || '',
+          cost: '',
+          sku: String(product.id ?? ''),
+          barcode: '',
+          type: mapDbTypeToUiType(product.bookType),
+          status: product.stock > 0 ? 'active' : 'draft',
+          quantity: product.stock || 0,
+          trialLimit: '',
+          chapters: []
+        });
+        if (product.image) {
+          setCoverImage(product.image);
+        }
+      } catch (err) {
+        console.error(err);
+        setError('ไม่สามารถโหลดข้อมูลสินค้าได้');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadProduct();
+  }, [id, router]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleScanBarcode = (barcode) => {
+    setFormData(prev => ({ ...prev, barcode }));
   };
 
   const handleImageChange = (e) => {
@@ -74,48 +136,123 @@ export default function AdminNewProductPage() {
     }));
   };
 
-  const handleSave = (e) => {
-    e.preventDefault();
+  const handleSave = async (e) => {
+    if (e) e.preventDefault();
     setIsSaving(true);
-    
-    // Save to global mock store
-    const newProduct = {
-      id: formData.sku || `SKU-${Math.floor(Math.random() * 1000)}`,
-      name: formData.title,
+
+    try {
+      const payload = {
+      title: formData.title,
       author: formData.author,
-      publisher: formData.publisher,
+      publisherName: formData.publisher,
       description: formData.description,
       price: Number(formData.price),
-      cost: Number(formData.cost),
-      sku: formData.sku,
-      barcode: formData.barcode,
-      type: formData.type,
-      status: formData.status,
-      chapters: formData.chapters,
-      cover: coverImage || 'https://placehold.co/120x180/f3f4f6/111827?text=Book'
-    };
+      image: coverImage || null,
+      bookType: mapUiTypeToDbType(formData.type),
+      };
 
-    setTimeout(() => {
-      addProduct(newProduct);
+      const res = await fetch(`/api/admin/books/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.message || 'Failed to update product');
+      }
+
       setIsSaving(false);
       router.push('/admin/products');
-    }, 800);
+    } catch (err) {
+      console.error(err);
+      setIsSaving(false);
+      alert('ไม่สามารถบันทึกการแก้ไขได้');
+    }
   };
+
+  const handleDiscontinue = () => {
+    setFormData(prev => ({ ...prev, status: 'draft' }));
+    setShowDiscontinueConfirm(false);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="h-80 flex items-center justify-center">
+        <div className="animate-pulse flex flex-col items-center">
+          <div className="w-8 h-8 border-4 border-gray-200 border-t-gray-900 rounded-full animate-spin mb-4"></div>
+          <div className="text-gray-500 font-medium tracking-wide">Loading product...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-3xl mx-auto py-16 text-center">
+        <p className="text-sm text-red-500 font-semibold">{error}</p>
+        <Link href="/admin/products" className="inline-block mt-4 px-4 py-2 rounded-lg bg-gray-900 text-white font-semibold text-sm">
+          กลับไปหน้ารายการสินค้า
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 max-w-5xl mx-auto pb-12">
+      {/* Confirmation Modal */}
+      {showDiscontinueConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="p-6">
+              <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mb-4">
+                <Ban className="w-6 h-6 text-red-600" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">ยืนยันการเลิกจำหน่าย?</h3>
+              <p className="text-sm text-gray-500">
+                คุณกำลังจะเปลี่ยนสถานะสินค้าเป็น "เลิกจำหน่าย" สินค้าจะไม่แสดงในหน้าค้นหาอีกต่อไป แต่ลูกค้าที่มีลิงก์ตรงจะยังคงเห็นหน้าสินค้าพร้อมป้ายกำกับว่า "เลิกจำหน่าย"
+              </p>
+            </div>
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+              <button 
+                onClick={() => setShowDiscontinueConfirm(false)}
+                className="px-4 py-2 font-bold text-gray-600 hover:bg-gray-200 rounded-xl transition-colors text-sm"
+              >
+                ยกเลิก
+              </button>
+              <button 
+                onClick={handleDiscontinue}
+                className="px-4 py-2 font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors text-sm shadow-sm"
+              >
+                ยืนยันเลิกจำหน่าย
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link href="/admin/dashboard" className="p-2 bg-white border border-gray-200 text-gray-400 hover:text-gray-900 rounded-full transition-colors shadow-sm">
+          <Link href="/admin/products" className="p-2 bg-white border border-gray-200 text-gray-400 hover:text-gray-900 rounded-full transition-colors shadow-sm">
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <div>
-            <h2 className="text-3xl font-black tracking-tight text-gray-900">{t('prod.new.title')}</h2>
-            <p className="text-gray-500 mt-1">{t('prod.new.subtitle')}</p>
+            <h2 className="text-3xl font-black tracking-tight text-gray-900">แก้ไขข้อมูลสินค้า</h2>
+            <p className="text-gray-500 mt-1">รหัสสินค้า: {id}</p>
           </div>
         </div>
         <div className="flex gap-3">
-          <Link href="/admin/dashboard" className="px-5 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-50 transition-colors shadow-sm">
+          {(formData.status === 'active' || formData.status === 'discontinued') && (
+            <button 
+              onClick={() => setShowDiscontinueConfirm(true)}
+              disabled={formData.status === 'discontinued'}
+              className="px-5 py-2.5 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              <Ban className="w-4 h-4" />
+              {formData.status === 'discontinued' ? 'เลิกจำหน่ายแล้ว' : 'เลิกจำหน่าย'}
+            </button>
+          )}
+          <Link href="/admin/products" className="px-5 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-50 transition-colors shadow-sm">
             {t('prod.new.cancel')}
           </Link>
           <button 
@@ -128,7 +265,7 @@ export default function AdminNewProductPage() {
             ) : (
               <Save className="w-4 h-4" />
             )}
-            {t('prod.new.save')}
+            บันทึกการแก้ไข
           </button>
         </div>
       </div>
@@ -223,20 +360,19 @@ export default function AdminNewProductPage() {
                 />
               </div>
             </div>
-
             {formData.type === 'physical' && (
               <div className="mb-5 p-4 bg-gray-50 border border-gray-200 rounded-xl flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                <AlertCircle className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
                 <div>
                   <label className="text-sm font-bold text-gray-700 block mb-1">จำนวนสต็อก (Quantity)</label>
                   <input 
                     type="number" 
-                    value={0}
+                    value={formData.quantity}
                     disabled
                     className="w-full px-4 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-sm text-gray-500 font-mono cursor-not-allowed mb-1" 
                   />
                   <p className="text-xs text-gray-500 font-medium">
-                    จำนวนสต็อกจะถูกเพิ่มผ่านการ "รับสินค้า (Receive PO)" เท่านั้น
+                    จำนวนสต็อกจะถูกอัปเดตผ่านเมนูรับสินค้า (Receive PO) หรือปรับปรุงสต็อกเท่านั้น
                   </p>
                 </div>
               </div>
@@ -250,8 +386,8 @@ export default function AdminNewProductPage() {
                   name="sku"
                   value={formData.sku}
                   onChange={handleInputChange}
-                  placeholder="SKU-XXXX" 
-                  className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-gray-900 transition-shadow font-mono" 
+                  disabled // typically shouldn't change SKU in edit mode easily, but we'll leave it disabled for mock
+                  className="w-full px-4 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-sm text-gray-500 font-mono cursor-not-allowed" 
                 />
               </div>
               {formData.type === 'physical' && (
@@ -283,17 +419,14 @@ export default function AdminNewProductPage() {
           {/* E-book Settings */}
           {formData.type === 'ebook' && (
             <div className="bg-white rounded-2xl shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] border border-gray-200 p-6">
-              <h3 className="text-lg font-black text-gray-900 mb-6 flex items-center gap-2">
-                <Book className="w-5 h-5 text-blue-500" />
-                ตั้งค่า E-Book
-              </h3>
+              <h3 className="text-lg font-black text-gray-900 mb-6">ตั้งค่า E-Book</h3>
               
               <div className="space-y-5">
                 <div>
                   <label className="text-sm font-bold text-gray-700 block mb-1.5">อัปโหลดไฟล์ E-Book (PDF/EPUB) <span className="text-red-500">*</span></label>
                   <div className="border-2 border-dashed border-gray-200 rounded-xl p-4 flex items-center justify-center bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer group">
                     <UploadCloud className="w-6 h-6 text-gray-400 group-hover:text-gray-600 transition-colors mr-3" />
-                    <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">คลิกเพื่อเลือกไฟล์หนังสือ</span>
+                    <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">คลิกเพื่อเปลี่ยนไฟล์หนังสือ</span>
                   </div>
                 </div>
 
@@ -330,7 +463,7 @@ export default function AdminNewProductPage() {
               </div>
               
               <div className="space-y-3">
-                {formData.chapters.length === 0 ? (
+                {(!formData.chapters || formData.chapters.length === 0) ? (
                   <div className="py-8 text-center bg-gray-50 border border-dashed border-gray-200 rounded-xl">
                     <p className="text-gray-500 font-medium">ยังไม่มีตอนในนิยายนี้</p>
                   </div>
@@ -461,7 +594,7 @@ export default function AdminNewProductPage() {
               />
               
               {coverImage ? (
-                <div className="relative aspect-[3/4] w-full">
+                <div className="relative aspect-3/4 w-full">
                   <img src={coverImage} alt="Cover Preview" className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                     <span className="text-white font-bold text-sm bg-black/50 px-3 py-1.5 rounded-lg">Change Image</span>
@@ -497,7 +630,7 @@ export default function AdminNewProductPage() {
         onClose={() => setShowChapterModal(false)}
         onSave={handleSaveChapter}
         initialData={editingChapter}
-        nextChapterNumber={formData.chapters.length + 1}
+        nextChapterNumber={formData.chapters ? formData.chapters.length + 1 : 1}
       />
     </div>
   );

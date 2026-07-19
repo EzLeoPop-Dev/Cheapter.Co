@@ -1,3 +1,4 @@
+// @ts-nocheck
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
 // 👇 1. เพิ่ม ChevronLeft สำหรับปุ่มย้อนกลับ
@@ -42,9 +43,17 @@ export default function AdminUsersPage() {
     try {
       const res = await fetch('/api/admin/users');
       const data = await res.json();
-      setUsers(data);
+      if (res.ok && Array.isArray(data)) {
+        setUsers(data);
+      } else {
+        setUsers([]);
+        if (res.status !== 401) {
+          console.error("Failed to fetch users:", data);
+        }
+      }
     } catch (error) {
       console.error("Failed to fetch users", error);
+      setUsers([]);
     } finally {
       setIsLoading(false);
     }

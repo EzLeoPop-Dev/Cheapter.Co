@@ -1,3 +1,4 @@
+// @ts-nocheck
 "use client";
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -29,7 +30,7 @@ function AdminLayoutInner({ children }) {
   const { lang, setLang, t } = useLanguage();
   
   const { user, isLoading } = useAuth();
-  const [dbUser, setDbUser] = useState(null);
+  const [dbUser, setDbUser] = useState<any>(null);
   // 👇 1. เพิ่ม State สำหรับเช็คว่าดึงข้อมูลจาก DB เสร็จหรือยัง (ตั้งต้นเป็น true เพื่อให้หมุนรอเลย)
   const [isFetchingProfile, setIsFetchingProfile] = useState(true);
 

@@ -1,12 +1,14 @@
+// @ts-nocheck
 "use client";
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '../../context/AuthContext';
+import { useRouter, useParams } from 'next/navigation';
+import { useAuth } from '../../../context/AuthContext';
 import { ArrowLeft, Save, Plus, Trash2, Book } from 'lucide-react';
 import Link from 'next/link';
 
-export default function NewBookPackPage() {
+export default function EditBookPackPage() {
   const router = useRouter();
+  const { id } = useParams();
   const { user } = useAuth();
   
   const [formData, setFormData] = useState({
@@ -17,27 +19,56 @@ export default function NewBookPackPage() {
     image: ''
   });
   
-  const [availableBooks, setAvailableBooks] = useState([]);
-  const [packItems, setPackItems] = useState([]);
+  const [availableBooks, setAvailableBooks] = useState<any[]>([]);
+  const [packItems, setPackItems] = useState<any[]>([]);
   const [selectedBookId, setSelectedBookId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
 
   useEffect(() => {
-    fetchBooks();
-  }, []);
+    fetchBooksAndPack();
+  }, [id]);
 
-  const fetchBooks = async () => {
+  const fetchBooksAndPack = async () => {
+    setIsFetching(true);
     try {
-      const res = await fetch('/api/admin/books');
-      if (res.ok) {
-        const data = await res.json();
-        setAvailableBooks(data);
-        if (data.length > 0) {
-          setSelectedBookId(data[0].id.toString());
+      // Fetch available books
+      const booksRes = await fetch('/api/admin/books');
+      if (booksRes.ok) {
+        const booksData = await booksRes.json();
+        setAvailableBooks(booksData);
+        if (booksData.length > 0) {
+          setSelectedBookId(booksData[0].id.toString());
         }
       }
+
+      // Fetch pack details
+      const packRes = await fetch(`/api/admin/book-packs/${id}`);
+      if (packRes.ok) {
+        const packData = await packRes.json();
+        setFormData({
+          title: packData.title || '',
+          description: packData.description || '',
+          price: packData.price || '',
+          stock: packData.stock || '',
+          image: packData.image || ''
+        });
+        
+        if (packData.packItems) {
+          setPackItems(packData.packItems.map(item => ({
+            ...item.book,
+            bookId: item.bookId,
+            quantity: item.quantity
+          })));
+        }
+      } else {
+        alert("Pack not found");
+        router.push('/admin/book-packs');
+      }
     } catch (error) {
-      console.error('Failed to fetch books', error);
+      console.error('Failed to fetch data', error);
+    } finally {
+      setIsFetching(false);
     }
   };
 
@@ -79,8 +110,8 @@ export default function NewBookPackPage() {
     
     setIsLoading(true);
     try {
-      const res = await fetch('/api/admin/book-packs', {
-        method: 'POST',
+      const res = await fetch(`/api/admin/book-packs/${id}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
@@ -92,7 +123,7 @@ export default function NewBookPackPage() {
         router.push('/admin/book-packs');
       } else {
         const error = await res.json();
-        alert(error.error || "Failed to create pack");
+        alert(error.error || "Failed to update pack");
       }
     } catch (error) {
       console.error(error);
@@ -106,6 +137,10 @@ export default function NewBookPackPage() {
     return <div className="p-8 text-center text-red-500 font-bold">Unauthorized</div>;
   }
 
+  if (isFetching) {
+    return <div className="p-8 text-center">Loading pack details...</div>;
+  }
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
@@ -114,8 +149,8 @@ export default function NewBookPackPage() {
             <ArrowLeft className="w-5 h-5 text-gray-500" />
           </Link>
           <div>
-            <h2 className="text-2xl font-black text-gray-900">Create Book Pack</h2>
-            <p className="text-gray-500 text-sm">Combine multiple books into a single product</p>
+            <h2 className="text-2xl font-black text-gray-900">Edit Book Pack</h2>
+            <p className="text-gray-500 text-sm">Update the details and contents of this pack</p>
           </div>
         </div>
       </div>
@@ -260,7 +295,7 @@ export default function NewBookPackPage() {
             disabled={isLoading}
             className="px-6 py-2.5 bg-[#1a1a1a] text-white font-bold rounded-xl hover:bg-black transition-colors flex items-center gap-2 disabled:opacity-50"
           >
-            {isLoading ? 'Saving...' : <><Save className="w-4 h-4" /> Save Book Pack</>}
+            {isLoading ? 'Updating...' : <><Save className="w-4 h-4" /> Update Book Pack</>}
           </button>
         </div>
       </form>

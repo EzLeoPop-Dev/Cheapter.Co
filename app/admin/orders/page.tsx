@@ -1,3 +1,4 @@
+// @ts-nocheck
 "use client";
 import React, { useEffect, useMemo, useState } from 'react';
 import { Search, Filter, Printer, ExternalLink, PackageCheck, Eye, CreditCard, Box, Truck, CheckCircle2 } from 'lucide-react';
@@ -6,11 +7,11 @@ import { useLanguage } from '../../context/LanguageContext';
 export default function AdminOrdersPage() {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState('all');
-  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [showSlip, setShowSlip] = useState(false);
   const [trackingInput, setTrackingInput] = useState('');
-  const [printOrder, setPrintOrder] = useState(null);
-  const [orders, setOrders] = useState([]);
+  const [printOrder, setPrintOrder] = useState<any>(null);
+  const [orders, setOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {

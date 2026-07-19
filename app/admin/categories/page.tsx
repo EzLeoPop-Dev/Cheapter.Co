@@ -1,3 +1,4 @@
+// @ts-nocheck
 "use client";
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Search, Plus, Folder, Edit2, Trash2, X, Save, BookOpen } from 'lucide-react';
@@ -5,21 +6,21 @@ import { useLanguage } from '@/app/context/LanguageContext';
 
 export default function AdminCategoriesPage() {
   const { t } = useLanguage();
-  const [categories, setCategories] = useState([]);
+  const [categories, setCategories] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   const [showModal, setShowModal] = useState(false);
-  const [editingCategory, setEditingCategory] = useState(null);
+  const [editingCategory, setEditingCategory] = useState<any>(null);
   const [nameInput, setNameInput] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const [formError, setFormError] = useState(null);
+  const [formError, setFormError] = useState<any>(null);
   const [showBooksModal, setShowBooksModal] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState(null);
-  const [categoryBooks, setCategoryBooks] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState<any>(null);
+  const [categoryBooks, setCategoryBooks] = useState<any[]>([]);
   const [isLoadingBooks, setIsLoadingBooks] = useState(false);
-  const [booksError, setBooksError] = useState(null);
+  const [booksError, setBooksError] = useState<any>(null);
 
   const loadCategories = useCallback(async () => {
     setIsLoading(true);

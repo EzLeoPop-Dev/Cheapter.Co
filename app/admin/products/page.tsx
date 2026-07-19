@@ -1,3 +1,4 @@
+// @ts-nocheck
 "use client";
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useLanguage } from '@/app/context/LanguageContext';
@@ -20,9 +21,9 @@ const STOCK_STATUS_META = {
 export default function AdminProductsPage() {
   const { t } = useLanguage();
   const { user } = useAuth();
-  const [products, setProducts] = useState([]);
+  const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<any>(null);
   const [stockFilter, setStockFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');

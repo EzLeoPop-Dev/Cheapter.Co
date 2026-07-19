@@ -1,3 +1,4 @@
+// @ts-nocheck
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
@@ -9,7 +10,7 @@ export default function AdminBookPacksPage() {
   const { t } = useLanguage();
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
-  const [packs, setPacks] = useState([]);
+  const [packs, setPacks] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {

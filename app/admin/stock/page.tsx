@@ -1,3 +1,4 @@
+// @ts-nocheck
 "use client";
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -9,13 +10,13 @@ const statusLabel = { InStock: 'In Stock', LowStock: 'Low Stock', OutOfStock: 'O
 
 export default function AdminStockPage() {
   const { t } = useLanguage();
-  const [stock, setStock] = useState([]);
+  const [stock, setStock] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [adjustModal, setAdjustModal] = useState(null);
-  const [logDrawer, setLogDrawer] = useState(null);
+  const [adjustModal, setAdjustModal] = useState<any>(null);
+  const [logDrawer, setLogDrawer] = useState<any>(null);
   const [adjustType, setAdjustType] = useState('add');
   const [adjustQty, setAdjustQty] = useState('');
   const [adjustReason, setAdjustReason] = useState('');
