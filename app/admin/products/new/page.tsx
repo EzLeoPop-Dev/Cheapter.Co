@@ -1,8 +1,7 @@
 // @ts-nocheck
 "use client";
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLanguage } from '../../../context/LanguageContext';
-import { useMockStore } from '../../context/MockStoreContext';
 import { Image as ImageIcon, UploadCloud, ArrowLeft, Save, X, Book, Package, AlertCircle, Scan, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -22,6 +21,7 @@ export default function AdminNewProductPage() {
     title: '',
     author: '',
     publisher: '',
+    categoryId: '',
     description: '',
     price: '',
     cost: '',
@@ -34,8 +34,28 @@ export default function AdminNewProductPage() {
     chapters: []
   });
 
-  const { addProduct } = useMockStore();
   const router = useRouter();
+
+  const mapUiTypeToDbType = (type) => {
+    if (type === 'ebook') return 'EBook';
+    if (type === 'serial') return 'Manga';
+    return 'Hardcover';
+  };
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const res = await fetch('/api/admin/categories');
+        if (!res.ok) throw new Error('Failed to load categories');
+        const data = await res.json();
+        setCategories(data.categories ?? []);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    loadCategories();
+  }, []);
 
   const handleScanBarcode = (barcode) => {
     setFormData(prev => ({ ...prev, barcode }));
@@ -75,32 +95,41 @@ export default function AdminNewProductPage() {
     }));
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
     setIsSaving(true);
-    
-    // Save to global mock store
-    const newProduct = {
-      id: formData.sku || `SKU-${Math.floor(Math.random() * 1000)}`,
-      name: formData.title,
-      author: formData.author,
-      publisher: formData.publisher,
-      description: formData.description,
-      price: Number(formData.price),
-      cost: Number(formData.cost),
-      sku: formData.sku,
-      barcode: formData.barcode,
-      type: formData.type,
-      status: formData.status,
-      chapters: formData.chapters,
-      cover: coverImage || 'https://placehold.co/120x180/f3f4f6/111827?text=Book'
-    };
 
-    setTimeout(() => {
-      addProduct(newProduct);
+    try {
+      const payload = {
+        title: formData.title,
+        author: formData.author,
+        publisherName: formData.publisher,
+        categoryId: formData.categoryId ? Number(formData.categoryId) : null,
+        description: formData.description,
+        price: Number(formData.price),
+        image: coverImage || null,
+        bookType: mapUiTypeToDbType(formData.type),
+        status: formData.status,
+      };
+
+      const res = await fetch('/api/admin/books', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.message || 'Failed to create product');
+      }
+
       setIsSaving(false);
       router.push('/admin/products');
-    }, 800);
+    } catch (err) {
+      console.error(err);
+      setIsSaving(false);
+      alert('ไม่สามารถสร้างสินค้าได้');
+    }
   };
 
   return (
@@ -180,6 +209,23 @@ export default function AdminNewProductPage() {
               </div>
 
               <div>
+                <label className="text-sm font-bold text-gray-700 block mb-1.5">หมวดหมู่สินค้า</label>
+                <select
+                  name="categoryId"
+                  value={formData.categoryId}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-gray-900 transition-shadow"
+                >
+                  <option value="">ไม่ระบุหมวดหมู่</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={String(cat.id)}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
                 <label className="text-sm font-bold text-gray-700 block mb-1.5">{t('prod.new.desc')}</label>
                 <textarea 
                   name="description"
@@ -227,7 +273,7 @@ export default function AdminNewProductPage() {
 
             {formData.type === 'physical' && (
               <div className="mb-5 p-4 bg-gray-50 border border-gray-200 rounded-xl flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                <AlertCircle className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
                 <div>
                   <label className="text-sm font-bold text-gray-700 block mb-1">จำนวนสต็อก (Quantity)</label>
                   <input 
@@ -462,7 +508,7 @@ export default function AdminNewProductPage() {
               />
               
               {coverImage ? (
-                <div className="relative aspect-[3/4] w-full">
+                <div className="relative aspect-3/4 w-full">
                   <img src={coverImage} alt="Cover Preview" className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                     <span className="text-white font-bold text-sm bg-black/50 px-3 py-1.5 rounded-lg">Change Image</span>

@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useLanguage } from '@/app/context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
-import { Search, Plus, Book, Package, Edit, Trash2, ExternalLink, ShoppingCart, Layers } from 'lucide-react';
+import { Search, Plus, Book, Package, Edit, Trash2, ShoppingCart, Layers, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 
 const TYPE_META = {
@@ -12,11 +12,12 @@ const TYPE_META = {
   Manga: { label: 'มังงะ', icon: Layers, className: 'text-gray-700' },
 };
 
-const STOCK_STATUS_META = {
-  InStock: { label: 'มีสินค้า', className: 'bg-green-50 text-green-700 border-green-200' },
-  LowStock: { label: 'ใกล้หมด', className: 'bg-amber-50 text-amber-700 border-amber-200' },
-  OutOfStock: { label: 'สินค้าหมด', className: 'bg-red-50 text-red-700 border-red-200' },
+const STATUS_META = {
+  active: { label: 'แสดงผล', className: 'bg-green-50 text-green-700 border-green-200' },
+  draft: { label: 'แบบร่าง', className: 'bg-gray-100 text-gray-700 border-gray-200' },
+  discontinued: { label: 'เลิกจำหน่าย', className: 'bg-red-50 text-red-700 border-red-200' },
 };
+
 
 export default function AdminProductsPage() {
   const { t } = useLanguage();
@@ -26,6 +27,7 @@ export default function AdminProductsPage() {
   const [error, setError] = useState<any>(null);
   const [stockFilter, setStockFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
   const loadProducts = useCallback(async () => {
@@ -62,8 +64,10 @@ export default function AdminProductsPage() {
 
   const filteredProducts = useMemo(() => {
     let result = products;
-    if (stockFilter !== 'all') result = result.filter(p => p.stockStatus === stockFilter);
     if (typeFilter !== 'all') result = result.filter(p => p.bookType === typeFilter);
+    if (statusFilter !== 'all') {
+      result = result.filter((p) => p.status === statusFilter);
+    }
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -74,7 +78,7 @@ export default function AdminProductsPage() {
       );
     }
     return result;
-  }, [products, stockFilter, typeFilter, searchQuery]);
+  }, [products, typeFilter, statusFilter, searchQuery]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -99,26 +103,7 @@ export default function AdminProductsPage() {
         
         {/* Toolbar */}
         <div className="flex flex-col sm:flex-row items-center justify-between border-b border-gray-100 px-2 pt-2 bg-gray-50/50 gap-4 sm:gap-0">
-          <div className="flex overflow-x-auto scrollbar-hide w-full sm:w-auto">
-            {[
-              { key: 'all', label: t('prod.filter.all') },
-              { key: 'InStock', label: STOCK_STATUS_META.InStock.label },
-              { key: 'LowStock', label: STOCK_STATUS_META.LowStock.label },
-              { key: 'OutOfStock', label: STOCK_STATUS_META.OutOfStock.label },
-            ].map(tab => (
-              <button 
-                key={tab.key} 
-                onClick={() => setStockFilter(tab.key)}
-                className={`px-6 py-3.5 text-sm font-bold border-b-2 whitespace-nowrap transition-all flex-1 sm:flex-none ${
-                  stockFilter === tab.key 
-                    ? 'border-gray-900 text-gray-900 bg-white rounded-t-xl' 
-                    : 'border-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-100/50 rounded-t-xl'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+          
           <div className="flex items-center gap-3 w-full sm:w-auto px-4 sm:px-0 sm:pr-4 pb-4 sm:pb-0">
             <select 
               value={typeFilter} 
@@ -129,6 +114,17 @@ export default function AdminProductsPage() {
               <option value="Hardcover">ปกแข็ง (Hardcover)</option>
               <option value="EBook">E-Book</option>
               <option value="Manga">มังงะ (Manga)</option>
+            </select>
+
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-2 bg-white border border-gray-200 text-gray-700 text-sm rounded-xl outline-none focus:border-gray-900 font-bold shadow-sm cursor-pointer hover:bg-gray-50 transition-colors"
+            >
+              <option value="all">ทุกสถานะ</option>
+              <option value="active">แสดงผล</option>
+              <option value="draft">แบบร่าง</option>
+              <option value="discontinued">เลิกจำหน่าย</option>
             </select>
 
             <div className="relative flex-1 sm:flex-none">
@@ -175,7 +171,8 @@ export default function AdminProductsPage() {
                 {filteredProducts.map((product) => {
                   const typeMeta = TYPE_META[product.bookType] ?? TYPE_META.Hardcover;
                   const TypeIcon = typeMeta.icon;
-                  const statusMeta = STOCK_STATUS_META[product.stockStatus] ?? STOCK_STATUS_META.InStock;
+                  const displayStatus = product.status || (product.stock > 0 ? 'active' : 'draft');
+                  
                   return (
                     <tr key={product.id} className="hover:bg-gray-50/80 transition-colors group">
                       <td className="py-4 px-6">
@@ -218,8 +215,8 @@ export default function AdminProductsPage() {
                         ฿{product.price}
                       </td>
                       <td className="py-4 px-6 text-center">
-                        <span className={`inline-flex items-center px-2.5 py-1 text-[10px] font-bold rounded-md uppercase tracking-wider border ${statusMeta.className}`}>
-                          {statusMeta.label}
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full border text-[10px] font-bold uppercase tracking-widest ${STATUS_META[displayStatus].className}`}>
+                          {STATUS_META[displayStatus].label}
                         </span>
                       </td>
                       <td className="py-4 px-6 text-right">

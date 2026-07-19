@@ -27,6 +27,7 @@ export default function AdminEditProductPage() {
     title: '',
     author: '',
     publisher: '',
+    categoryId: '',
     description: '',
     price: '',
     cost: '',
@@ -54,6 +55,21 @@ export default function AdminEditProductPage() {
   };
 
   useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const res = await fetch('/api/admin/categories');
+        if (!res.ok) throw new Error('Failed to load categories');
+        const data = await res.json();
+        setCategories(data.categories ?? []);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    loadCategories();
+  }, []);
+
+  useEffect(() => {
     const loadProduct = async () => {
       if (!id) return;
       setIsLoading(true);
@@ -73,13 +89,14 @@ export default function AdminEditProductPage() {
           title: product.title || '',
           author: product.author || '',
           publisher: product.publisherName || '',
+          categoryId: product.categoryId ? String(product.categoryId) : '',
           description: product.description || '',
           price: product.price || '',
           cost: '',
           sku: String(product.id ?? ''),
           barcode: '',
           type: mapDbTypeToUiType(product.bookType),
-          status: product.stock > 0 ? 'active' : 'draft',
+          status: product.status || (product.stock > 0 ? 'active' : 'draft'),
           quantity: product.stock || 0,
           trialLimit: '',
           chapters: []
@@ -145,10 +162,12 @@ export default function AdminEditProductPage() {
       title: formData.title,
       author: formData.author,
       publisherName: formData.publisher,
+      categoryId: formData.categoryId ? Number(formData.categoryId) : null,
       description: formData.description,
       price: Number(formData.price),
       image: coverImage || null,
       bookType: mapUiTypeToDbType(formData.type),
+      status: formData.status,
       };
 
       const res = await fetch(`/api/admin/books/${id}`, {
@@ -172,7 +191,7 @@ export default function AdminEditProductPage() {
   };
 
   const handleDiscontinue = () => {
-    setFormData(prev => ({ ...prev, status: 'draft' }));
+    setFormData(prev => ({ ...prev, status: 'discontinued' }));
     setShowDiscontinueConfirm(false);
   };
 
@@ -210,7 +229,7 @@ export default function AdminEditProductPage() {
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-2">ยืนยันการเลิกจำหน่าย?</h3>
               <p className="text-sm text-gray-500">
-                คุณกำลังจะเปลี่ยนสถานะสินค้าเป็น "เลิกจำหน่าย" สินค้าจะไม่แสดงในหน้าค้นหาอีกต่อไป แต่ลูกค้าที่มีลิงก์ตรงจะยังคงเห็นหน้าสินค้าพร้อมป้ายกำกับว่า "เลิกจำหน่าย"
+                คุณกำลังจะเปลี่ยนสถานะสินค้าเป็น "เลิกจำหน่าย" สำหรับการใช้งานในระบบหลังบ้าน
               </p>
             </div>
             <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
@@ -313,6 +332,23 @@ export default function AdminEditProductPage() {
                     className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-gray-900 transition-shadow" 
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-bold text-gray-700 block mb-1.5">หมวดหมู่สินค้า</label>
+                <select
+                  name="categoryId"
+                  value={formData.categoryId}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-gray-900 transition-shadow"
+                >
+                  <option value="">ไม่ระบุหมวดหมู่</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={String(cat.id)}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>

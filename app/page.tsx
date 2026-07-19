@@ -28,10 +28,11 @@ export default async function Home() {
 
     return <HomeContent books={books.map(formatBook)} bestSellers={bestSellers.map(formatBook)} />;
   }
-  const { supabase } = await import('@/src/lib/supabase/server');
-  const supabaseClient = await supabase();
+  const { createClient } = await import('@/src/lib/supabase/server');
+  const supabaseClient = await createClient();
   const { data: booksData } = await supabaseClient.from('books').select('*').order('createdAt', { ascending: false }).limit(10);
-  const bestSellers = [...booksData].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)).slice(0, 10);
+  const safeBooksData = Array.isArray(booksData) ? booksData : [];
+  const bestSellers = safeBooksData.slice().sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)).slice(0, 10);
 
-  return <HomeContent books={booksData.slice(0, 10)} bestSellers={bestSellers} />;
+  return <HomeContent books={safeBooksData.slice(0, 10)} bestSellers={bestSellers} />;
 }

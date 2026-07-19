@@ -21,6 +21,10 @@ export default function AdminCategoriesPage() {
   const [categoryBooks, setCategoryBooks] = useState<any[]>([]);
   const [isLoadingBooks, setIsLoadingBooks] = useState(false);
   const [booksError, setBooksError] = useState<any>(null);
+  const [allBooks, setAllBooks] = useState<any[]>([]);
+  const [selectedBookIds, setSelectedBookIds] = useState<number[]>([]);
+  const [bookSearchQuery, setBookSearchQuery] = useState('');
+  const [isUpdatingBooks, setIsUpdatingBooks] = useState(false);
 
   const loadCategories = useCallback(async () => {
     setIsLoading(true);
@@ -116,14 +120,26 @@ export default function AdminCategoriesPage() {
     setShowBooksModal(true);
     setSelectedCategory(category);
     setCategoryBooks([]);
+    setAllBooks([]);
+    setSelectedBookIds([]);
+    setBookSearchQuery('');
     setBooksError(null);
     setIsLoadingBooks(true);
 
     try {
-      const res = await fetch(`/api/admin/categories/${category.id}`);
-      if (!res.ok) throw new Error('Failed to load category books');
-      const data = await res.json();
-      setCategoryBooks(data?.category?.books ?? []);
+      const [categoryRes, booksRes] = await Promise.all([
+        fetch(`/api/admin/categories/${category.id}`),
+        fetch('/api/admin/books'),
+      ]);
+
+      if (!categoryRes.ok) throw new Error('Failed to load category books');
+      if (!booksRes.ok) throw new Error('Failed to load books');
+
+      const categoryData = await categoryRes.json();
+      const booksData = await booksRes.json();
+
+      setCategoryBooks(categoryData?.category?.books ?? []);
+      setAllBooks(booksData?.books ?? []);
     } catch (err) {
       console.error(err);
       setBooksError('ไม่สามารถโหลดรายการหนังสือของหมวดหมู่นี้ได้');
@@ -131,6 +147,74 @@ export default function AdminCategoriesPage() {
       setIsLoadingBooks(false);
     }
   };
+
+  const toggleBookSelection = (bookId) => {
+    setSelectedBookIds((prev) =>
+      prev.includes(bookId) ? prev.filter((id) => id !== bookId) : [...prev, bookId],
+    );
+  };
+
+  const handleAddSelectedBooks = async () => {
+    if (!selectedCategory || selectedBookIds.length === 0) return;
+
+    setIsUpdatingBooks(true);
+    try {
+      const res = await fetch(`/api/admin/categories/${selectedCategory.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ addBookIds: selectedBookIds }),
+      });
+
+      if (!res.ok) throw new Error('Failed to add books to category');
+
+      await handleViewBooks(selectedCategory);
+      await loadCategories();
+    } catch (err) {
+      console.error(err);
+      setBooksError('ไม่สามารถเพิ่มหนังสือเข้าหมวดหมู่ได้');
+    } finally {
+      setIsUpdatingBooks(false);
+    }
+  };
+
+  const handleRemoveBookFromCategory = async (bookId) => {
+    if (!selectedCategory) return;
+
+    setIsUpdatingBooks(true);
+    try {
+      const res = await fetch(`/api/admin/categories/${selectedCategory.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ removeBookIds: [bookId] }),
+      });
+
+      if (!res.ok) throw new Error('Failed to remove book from category');
+
+      await handleViewBooks(selectedCategory);
+      await loadCategories();
+    } catch (err) {
+      console.error(err);
+      setBooksError('ไม่สามารถนำหนังสือออกจากหมวดหมู่ได้');
+    } finally {
+      setIsUpdatingBooks(false);
+    }
+  };
+
+  const availableBooks = useMemo(() => {
+    if (!selectedCategory) return [];
+
+    const q = bookSearchQuery.trim().toLowerCase();
+
+    return allBooks.filter((book) => {
+      if (book.categoryId === selectedCategory.id) return false;
+      if (!q) return true;
+      return (
+        book.title?.toLowerCase().includes(q) ||
+        book.author?.toLowerCase().includes(q) ||
+        String(book.id).includes(q)
+      );
+    });
+  }, [allBooks, selectedCategory, bookSearchQuery]);
 
   return (
     <div className="space-y-6">
@@ -289,34 +373,104 @@ export default function AdminCategoriesPage() {
                   <p className="text-sm text-gray-500">ยังไม่มีหนังสือในหมวดหมู่นี้</p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {categoryBooks.map((book) => (
-                    <div key={book.id} className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-gray-200 transition-colors">
-                      <div className="w-12 h-16 rounded-md overflow-hidden bg-gray-100 border border-gray-200 shrink-0">
-                        {book.image ? (
-                          <img src={book.image} alt={book.title} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <BookOpen className="w-4 h-4 text-gray-300" />
+                <div className="space-y-6">
+                  <div>
+                    <h4 className="text-sm font-bold text-gray-900 mb-3">หนังสือในหมวดหมู่</h4>
+                    {categoryBooks.length === 0 ? (
+                      <div className="text-center py-8 border border-dashed border-gray-200 rounded-xl">
+                        <p className="text-sm text-gray-500">ยังไม่มีหนังสือในหมวดหมู่นี้</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {categoryBooks.map((book) => (
+                          <div key={book.id} className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-gray-200 transition-colors">
+                            <div className="w-12 h-16 rounded-md overflow-hidden bg-gray-100 border border-gray-200 shrink-0">
+                              {book.image ? (
+                                <img src={book.image} alt={book.title} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <BookOpen className="w-4 h-4 text-gray-300" />
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <p className="font-bold text-gray-900 truncate">{book.title}</p>
+                              <p className="text-xs text-gray-500 mt-0.5">{book.author}</p>
+                              <div className="flex items-center gap-2 mt-1.5 text-[11px]">
+                                <span className="font-mono font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">#{book.id}</span>
+                                <span className="font-bold text-gray-700">{book.bookType}</span>
+                                <span className="font-bold text-gray-700">Stock: {book.stock}</span>
+                              </div>
+                            </div>
+
+                            <div className="text-right shrink-0">
+                              <p className="text-sm font-bold text-gray-900">฿{book.price}</p>
+                              <button
+                                onClick={() => handleRemoveBookFromCategory(book.id)}
+                                disabled={isUpdatingBooks}
+                                className="mt-2 px-2.5 py-1 text-[11px] font-bold text-red-700 bg-red-50 hover:bg-red-100 rounded-md transition-colors disabled:opacity-60"
+                              >
+                                นำออก
+                              </button>
+                            </div>
                           </div>
-                        )}
+                        ))}
                       </div>
+                    )}
+                  </div>
 
-                      <div className="min-w-0 flex-1">
-                        <p className="font-bold text-gray-900 truncate">{book.title}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">{book.author}</p>
-                        <div className="flex items-center gap-2 mt-1.5 text-[11px]">
-                          <span className="font-mono font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">#{book.id}</span>
-                          <span className="font-bold text-gray-700">{book.bookType}</span>
-                          <span className="font-bold text-gray-700">Stock: {book.stock}</span>
-                        </div>
+                  <div className="pt-4 border-t border-gray-100">
+                    <h4 className="text-sm font-bold text-gray-900 mb-3">เพิ่มหนังสือเข้าหมวดหมู่นี้</h4>
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="relative flex-1">
+                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input
+                          type="text"
+                          value={bookSearchQuery}
+                          onChange={(e) => setBookSearchQuery(e.target.value)}
+                          placeholder="ค้นหาหนังสือที่ต้องการเพิ่ม..."
+                          className="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-gray-900"
+                        />
                       </div>
-
-                      <div className="text-right shrink-0">
-                        <p className="text-sm font-bold text-gray-900">฿{book.price}</p>
-                      </div>
+                      <button
+                        onClick={handleAddSelectedBooks}
+                        disabled={selectedBookIds.length === 0 || isUpdatingBooks}
+                        className="px-4 py-2.5 text-xs font-bold text-white bg-gray-900 hover:bg-gray-800 rounded-xl transition-colors disabled:opacity-60"
+                      >
+                        เพิ่มที่เลือก ({selectedBookIds.length})
+                      </button>
                     </div>
-                  ))}
+
+                    {availableBooks.length === 0 ? (
+                      <div className="text-center py-8 border border-dashed border-gray-200 rounded-xl">
+                        <p className="text-sm text-gray-500">ไม่พบหนังสือที่สามารถเพิ่มได้</p>
+                      </div>
+                    ) : (
+                      <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
+                        {availableBooks.map((book) => {
+                          const checked = selectedBookIds.includes(book.id);
+                          return (
+                            <label
+                              key={book.id}
+                              className={`flex items-center gap-3 p-2.5 rounded-xl border cursor-pointer transition-colors ${checked ? 'border-gray-900 bg-gray-50' : 'border-gray-100 hover:border-gray-200'}`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => toggleBookSelection(book.id)}
+                                className="w-4 h-4"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-bold text-gray-900 truncate">{book.title}</p>
+                                <p className="text-xs text-gray-500 truncate">{book.author} • #{book.id}</p>
+                              </div>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
