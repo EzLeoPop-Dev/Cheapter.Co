@@ -4,16 +4,74 @@ import { motion } from "framer-motion";
 import { Navbar } from "../../components/Navbar";
 import { Package, Truck, CheckCircle2, MapPin, CreditCard, ChevronRight } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+
+type TrackingOrder = {
+  id: string;
+  status: string;
+  paymentMethod: string;
+  recipientName: string;
+  recipientPhone: string | null;
+  shippingAddress: string;
+  subtotal: number;
+  shippingFee: number;
+  taxAmount: number;
+  totalAmount: number;
+  trackingNumber: string | null;
+  createdAt: string;
+  items: { title: string; imageUrl: string | null; quantity: number; unitPrice: number }[];
+};
+
+const LATEST_ORDER_KEY = "cheapterLatestOrder";
 
 export default function TrackingPage() {
-  const currentStep = 3; // 0: Ordered, 1: Processing, 2: Shipped, 3: Out for Delivery, 4: Delivered
+  const [order, setOrder] = useState<TrackingOrder | null>(null);
+
+  useEffect(() => {
+    fetch("/api/orders/latest", { cache: "no-store" })
+      .then((res) => res.json())
+      .then(async (data) => {
+        if (data.order) {
+          setOrder(data.order);
+          localStorage.setItem(LATEST_ORDER_KEY, JSON.stringify(data.order));
+          return;
+        }
+
+        const rawOrder = localStorage.getItem(LATEST_ORDER_KEY);
+        const storedOrder = rawOrder ? JSON.parse(rawOrder) : null;
+        if (storedOrder?.id) {
+          const response = await fetch(`/api/orders/${storedOrder.id}`, { cache: "no-store" });
+          if (response.ok) {
+            const fresh = await response.json();
+            setOrder(fresh.order);
+            localStorage.setItem(LATEST_ORDER_KEY, JSON.stringify(fresh.order));
+            return;
+          }
+        }
+        setOrder(storedOrder);
+      })
+      .catch(() => {
+        const rawOrder = localStorage.getItem(LATEST_ORDER_KEY);
+        setOrder(rawOrder ? JSON.parse(rawOrder) : null);
+      });
+  }, []);
+
+  const currentStep = useMemo(() => {
+    switch (order?.status) {
+      case "VERIFYING": return 0;
+      case "PREPARING": return 1;
+      case "SHIPPING": return 2;
+      case "COMPLETED": return 3;
+      case "PENDING": return 0;
+      default: return 0;
+    }
+  }, [order?.status]);
 
   const steps = [
-    { title: "Order Placed", date: "July 15, 09:30 AM", icon: <Package size={20} /> },
-    { title: "Processing", date: "July 15, 02:15 PM", icon: <CheckCircle2 size={20} /> },
-    { title: "Shipped", date: "July 16, 10:45 AM", icon: <Truck size={20} /> },
-    { title: "Out for Delivery", date: "July 17, 08:00 AM", icon: <MapPin size={20} /> },
-    { title: "Delivered", date: "Expected by 08:00 PM", icon: <CheckCircle2 size={20} /> },
+    { title: "ตรวจสอบการชำระเงิน", date: order ? new Date(order.createdAt).toLocaleString() : "-", icon: <CreditCard size={20} /> },
+    { title: "เตรียมการจัดส่ง", date: order?.status === "PREPARING" ? "Packing your books" : "-", icon: <Package size={20} /> },
+    { title: "อยู่ระหว่างการจัดส่ง", date: order?.trackingNumber || "-", icon: <Truck size={20} /> },
+    { title: "สำเร็จ", date: order?.status === "COMPLETED" ? "Completed" : "Waiting update", icon: <CheckCircle2 size={20} /> },
   ];
 
   return (
@@ -33,13 +91,13 @@ export default function TrackingPage() {
                 Track Order
               </h1>
               <span className="bg-[#e6dbcc]/50 text-amber-900 px-3 py-1 rounded-md text-base md:text-lg font-bold tracking-wider border border-[#d5c3aa] w-fit">
-                #CH-100234-TH
+                #{order?.id || "Loading..."}
               </span>
             </div>
           </div>
           <div className="text-left sm:text-right">
             <p className="text-xs text-stone-500 uppercase tracking-wider font-bold mb-1">Expected Delivery</p>
-            <p className="text-xl md:text-2xl font-bold text-[#b46b45]">Today, July 17</p>
+            <p className="text-xl md:text-2xl font-bold text-[#b46b45]">{order?.trackingNumber || "Pending update"}</p>
           </div>
         </div>
 
@@ -94,33 +152,18 @@ export default function TrackingPage() {
           <div className="lg:col-span-2 flex flex-col gap-6">
             <h2 className="text-xl font-bold text-stone-800">Order Items</h2>
             <div className="bg-white rounded-xl p-6 border border-stone-100 shadow-sm flex flex-col gap-6">
-              {/* Item 1 */}
-              <div className="flex gap-4">
-                <div className="w-20 h-28 bg-stone-200 rounded shrink-0 overflow-hidden shadow-sm">
-                  <img src="https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=200&auto=format&fit=crop" alt="Book" className="w-full h-full object-cover" />
+              {order?.items.map((item, index) => (
+                <div key={`${item.title}-${index}`} className="flex gap-4">
+                  <div className="w-20 h-28 bg-stone-200 rounded shrink-0 overflow-hidden shadow-sm">
+                    <img src={item.imageUrl || "https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=200&auto=format&fit=crop"} alt="Book" className="w-full h-full object-cover" />
+                  </div>
+                  <div className="flex flex-col flex-1 justify-center">
+                    <h3 className="font-bold text-stone-800 text-base md:text-lg">{item.title}</h3>
+                    <p className="text-xs text-stone-500 bg-stone-100 px-2 py-1 rounded w-fit mb-auto">Qty: {item.quantity}</p>
+                    <p className="font-bold text-[#b46b45] mt-2">฿{(item.unitPrice * item.quantity).toFixed(2)}</p>
+                  </div>
                 </div>
-                <div className="flex flex-col flex-1 justify-center">
-                  <h3 className="font-bold text-stone-800 text-base md:text-lg">The Architecture of Silence</h3>
-                  <p className="text-sm text-stone-500 font-serif italic mb-2">Elena Rostova</p>
-                  <p className="text-xs text-stone-500 bg-stone-100 px-2 py-1 rounded w-fit mb-auto">Qty: 1</p>
-                  <p className="font-bold text-[#b46b45] mt-2">$24.00</p>
-                </div>
-              </div>
-
-              <div className="w-full h-px bg-stone-100"></div>
-
-              {/* Item 2 */}
-              <div className="flex gap-4">
-                <div className="w-20 h-28 bg-stone-200 rounded shrink-0 overflow-hidden shadow-sm">
-                  <img src="https://images.unsplash.com/photo-1589829085413-56de8ae18c73?q=80&w=200&auto=format&fit=crop" alt="Book" className="w-full h-full object-cover" />
-                </div>
-                <div className="flex flex-col flex-1 justify-center">
-                  <h3 className="font-bold text-stone-800 text-base md:text-lg">Notes on Wabi-Sabi</h3>
-                  <p className="text-sm text-stone-500 font-serif italic mb-2">Kenji Sato</p>
-                  <p className="text-xs text-stone-500 bg-stone-100 px-2 py-1 rounded w-fit mb-auto">Qty: 1</p>
-                  <p className="font-bold text-[#b46b45] mt-2">$18.50</p>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
 
@@ -136,9 +179,8 @@ export default function TrackingPage() {
                   Shipping Address
                 </div>
                 <div className="pl-6 text-sm text-stone-600 flex flex-col">
-                  <span>Jane Doe (081-234-5678)</span>
-                  <span>123 Paper St, Apt 4B</span>
-                  <span>Portland, 97204</span>
+                  <span>{order?.recipientName} {order?.recipientPhone ? `(${order.recipientPhone})` : ""}</span>
+                  <span className="whitespace-pre-line">{order?.shippingAddress}</span>
                 </div>
               </div>
 
@@ -150,7 +192,7 @@ export default function TrackingPage() {
                   Payment Method
                 </div>
                 <div className="pl-6 text-sm text-stone-600 flex flex-col">
-                  <span>Credit Card ending in **34</span>
+                  <span>{order?.paymentMethod || "-"}</span>
                 </div>
               </div>
 
@@ -159,20 +201,20 @@ export default function TrackingPage() {
               <div className="flex flex-col gap-3 mt-auto pt-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-stone-500">Subtotal</span>
-                  <span className="text-stone-800 font-medium">$42.50</span>
+                  <span className="text-stone-800 font-medium">฿{(order?.subtotal || 0).toFixed(2)}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-stone-500">Shipping</span>
-                  <span className="text-stone-800 font-medium">Free</span>
+                  <span className="text-stone-800 font-medium">฿{(order?.shippingFee || 0).toFixed(2)}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-stone-500">Taxes</span>
-                  <span className="text-stone-800 font-medium">$3.40</span>
+                  <span className="text-stone-800 font-medium">฿{(order?.taxAmount || 0).toFixed(2)}</span>
                 </div>
                 <div className="w-full h-px bg-stone-200/60 my-1"></div>
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-stone-800">Total</span>
-                  <span className="font-bold text-[#b46b45] text-lg">$45.90</span>
+                  <span className="font-bold text-[#b46b45] text-lg">฿{(order?.totalAmount || 0).toFixed(2)}</span>
                 </div>
               </div>
             </div>
