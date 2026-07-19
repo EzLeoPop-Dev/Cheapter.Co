@@ -10,7 +10,28 @@ type PatchBody = {
   image?: string | null;
   bookType?: "Hardcover" | "EBook" | "Manga";
   publisherName?: string;
+  categoryId?: number | string | null;
+  status?: "draft" | "active" | "discontinued";
 };
+
+function resolveAdminStatus(sampleData: unknown, stock: number): "draft" | "active" | "discontinued" {
+  if (sampleData && typeof sampleData === "object" && !Array.isArray(sampleData)) {
+    const status = (sampleData as Record<string, unknown>).adminStatus;
+    if (status === "draft" || status === "active" || status === "discontinued") {
+      return status;
+    }
+  }
+
+  return stock > 0 ? "active" : "draft";
+}
+
+function toObjectSampleData(sampleData: unknown): Record<string, unknown> {
+  if (sampleData && typeof sampleData === "object" && !Array.isArray(sampleData)) {
+    return sampleData as Record<string, unknown>;
+  }
+
+  return {};
+}
 
 export async function GET(
   _request: NextRequest,
@@ -32,6 +53,12 @@ export async function GET(
             name: true,
           },
         },
+        category: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
     });
 
@@ -50,6 +77,9 @@ export async function GET(
         stock: book.stock,
         stockStatus: book.stockStatus,
         bookType: book.bookType,
+        status: resolveAdminStatus(book.sampleData, book.stock),
+        categoryId: book.category?.id ?? null,
+        categoryName: book.category?.name ?? null,
         publisherName: book.publisher?.name ?? "",
       },
     });
@@ -91,6 +121,34 @@ export async function PATCH(
       body.bookType === "Hardcover" || body.bookType === "EBook" || body.bookType === "Manga"
         ? body.bookType
         : "Hardcover";
+    const status =
+      body.status === "draft" || body.status === "active" || body.status === "discontinued"
+        ? body.status
+        : undefined;
+    const hasCategoryId = Object.prototype.hasOwnProperty.call(body, "categoryId");
+    let categoryId: number | null | undefined = undefined;
+    if (hasCategoryId) {
+      if (body.categoryId === null || body.categoryId === "") {
+        categoryId = null;
+      } else {
+        const parsedCategoryId = Number(body.categoryId);
+        if (!Number.isInteger(parsedCategoryId)) {
+          return Response.json({ message: "Invalid category id" }, { status: 400 });
+        }
+        categoryId = parsedCategoryId;
+      }
+    }
+
+    const existingBook = await prisma.book.findUnique({
+      where: { id: parsedId },
+      select: { sampleData: true },
+    });
+
+    if (!existingBook) {
+      return Response.json({ message: "Book not found" }, { status: 404 });
+    }
+
+    const currentSampleData = toObjectSampleData(existingBook.sampleData);
 
     const updated = await prisma.book.update({
       where: { id: parsedId },
@@ -101,6 +159,22 @@ export async function PATCH(
         image,
         price,
         bookType,
+        ...(status
+          ? {
+              sampleData: {
+                ...currentSampleData,
+                adminStatus: status,
+              },
+            }
+          : {}),
+        ...(categoryId !== undefined
+          ? {
+              category:
+                categoryId === null
+                  ? { disconnect: true }
+                  : { connect: { id: categoryId } },
+            }
+          : {}),
         publisher: publisherName
           ? {
               connectOrCreate: {
@@ -118,6 +192,12 @@ export async function PATCH(
             name: true,
           },
         },
+        category: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
     });
 
@@ -132,6 +212,9 @@ export async function PATCH(
         stock: updated.stock,
         stockStatus: updated.stockStatus,
         bookType: updated.bookType,
+        status: resolveAdminStatus(updated.sampleData, updated.stock),
+        categoryId: updated.category?.id ?? null,
+        categoryName: updated.category?.name ?? null,
         publisherName: updated.publisher?.name ?? "",
       },
     });

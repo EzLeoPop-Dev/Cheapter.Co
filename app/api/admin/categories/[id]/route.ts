@@ -71,20 +71,68 @@ export async function PATCH(
 
     const body = await request.json().catch(() => null);
     const name = typeof body?.name === "string" ? body.name.trim() : "";
+    const addBookIds = Array.isArray(body?.addBookIds)
+      ? body.addBookIds
+          .map((id: unknown) => Number(id))
+          .filter((id: number) => Number.isInteger(id))
+      : [];
+    const removeBookIds = Array.isArray(body?.removeBookIds)
+      ? body.removeBookIds
+          .map((id: unknown) => Number(id))
+          .filter((id: number) => Number.isInteger(id))
+      : [];
 
-    if (!name) {
-      return Response.json({ message: "Category name is required" }, { status: 400 });
+    if (!name && addBookIds.length === 0 && removeBookIds.length === 0) {
+      return Response.json(
+        { message: "At least one of name, addBookIds, removeBookIds is required" },
+        { status: 400 },
+      );
     }
 
-    const category = await prisma.category.update({
+    await prisma.$transaction(async (tx) => {
+      if (name) {
+        await tx.category.update({
+          where: { id: parsedId },
+          data: { name },
+        });
+      }
+
+      if (addBookIds.length > 0) {
+        await tx.book.updateMany({
+          where: {
+            id: { in: addBookIds },
+          },
+          data: {
+            categoryId: parsedId,
+          },
+        });
+      }
+
+      if (removeBookIds.length > 0) {
+        await tx.book.updateMany({
+          where: {
+            id: { in: removeBookIds },
+            categoryId: parsedId,
+          },
+          data: {
+            categoryId: null,
+          },
+        });
+      }
+    });
+
+    const category = await prisma.category.findUnique({
       where: { id: parsedId },
-      data: { name },
       include: {
         _count: {
           select: { books: true },
         },
       },
     });
+
+    if (!category) {
+      return Response.json({ message: "Category not found" }, { status: 404 });
+    }
 
     return Response.json({
       category: { id: category.id, name: category.name, count: category._count.books },
