@@ -1,9 +1,7 @@
-import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/src/lib/prisma";
 
-const prisma = new PrismaClient();
-
-export async function GET(req) {
+export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const search = searchParams.get('search') || '';
@@ -36,7 +34,7 @@ export async function GET(req) {
   }
 }
 
-export async function POST(req) {
+export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { title, description, price, stock, stockStatus, image, packItems } = body;
@@ -56,7 +54,7 @@ export async function POST(req) {
         image,
         bookType: 'Pack',
         packItems: {
-          create: packItems.map(item => ({
+          create: packItems.map((item: any) => ({
             bookId: Number(item.bookId),
             quantity: Number(item.quantity) || 1
           }))

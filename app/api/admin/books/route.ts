@@ -16,6 +16,9 @@ function resolveAdminStatus(sampleData: unknown, stock: number): "draft" | "acti
 export async function GET() {
   try {
     const books = await prisma.book.findMany({
+      where: {
+        bookType: { not: "Pack" }
+      },
       include: {
         category: {
           select: { name: true },
@@ -56,6 +59,8 @@ type PostBody = {
   publisherName?: string;
   categoryId?: number | string | null;
   status?: "draft" | "active" | "discontinued";
+  ebookFile?: string | null;
+  sampleLimit?: number | null;
 };
 
 export async function POST(request: NextRequest) {
@@ -78,6 +83,9 @@ export async function POST(request: NextRequest) {
       body?.status === "draft" || body?.status === "active" || body?.status === "discontinued"
         ? body.status
         : "draft";
+
+    const ebookFile = typeof body?.ebookFile === "string" ? body.ebookFile.trim() : null;
+    const sampleLimit = typeof body?.sampleLimit === "number" ? body.sampleLimit : null;
 
     if (!title) {
       return Response.json({ message: "Title is required" }, { status: 400 });
@@ -104,7 +112,7 @@ export async function POST(request: NextRequest) {
 
     const sampleData = {
       adminStatus: status,
-    } as Record<string, unknown>;
+    } as any;
 
     const created = await prisma.book.create({
       data: {
@@ -117,6 +125,8 @@ export async function POST(request: NextRequest) {
         stock: 0,
         stockStatus: "OutOfStock",
         sampleData,
+        ebookFile,
+        sampleLimit,
         ...(publisherName
           ? {
               publisher: {
@@ -154,8 +164,8 @@ export async function POST(request: NextRequest) {
           price: Number(created.price),
           bookType: created.bookType,
           status: resolveAdminStatus(created.sampleData, created.stock),
-          categoryId: created.category?.id ?? null,
-          categoryName: created.category?.name ?? null,
+          categoryId: created.categoryId ?? null,
+          categoryName: (created as any).category?.name ?? null,
         },
       },
       { status: 201 },

@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { Navbar } from "./Navbar";
+import { useLanguage } from "../context/LanguageContext";
 import { HeroImage } from "./HeroImage";
 import { CategoryNav } from "./CategoryNav";
 import { DiscountMarquee } from "./DiscountMarquee";
@@ -20,17 +21,19 @@ type Book = {
 };
 
 export function HomeContent({ books, bestSellers }: { books: Book[]; bestSellers: Book[] }) {
+  const { t } = useLanguage();
+
   return (
     <div className="min-h-screen bg-[#faf8f4] flex flex-col font-sans text-stone-800 overflow-hidden">
       <Navbar />
-      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="w-full bg-[#e6dbcc] text-center py-2 text-xs font-semibold tracking-wider text-amber-900">Free shipping on orders over $100</motion.div>
+      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="w-full bg-[#e6dbcc] text-center py-2 text-xs font-semibold tracking-wider text-amber-900">{t('home.promoBanner')}</motion.div>
       <main className="flex-1 w-full max-w-7xl mx-auto px-8 py-16 lg:py-24 grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-8 items-center">
         <div className="flex flex-col gap-8 z-10">
-          <motion.h1 initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.2 }} className="text-5xl md:text-6xl lg:text-[72px] leading-[1.1] font-bold text-stone-900 tracking-tight">Find the stories<br />that <span className="font-serif italic text-amber-800/90 font-medium">live and breathe.</span></motion.h1>
-          <motion.p initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.4 }} className="text-lg md:text-xl text-stone-500 max-w-md leading-relaxed">Curated literature for the wandering mind. Discover our latest collection of tactile, meaningful reads selected by independent booksellers.</motion.p>
+          <motion.h1 initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.2 }} className="text-5xl md:text-6xl lg:text-[72px] leading-[1.1] font-bold text-stone-900 tracking-tight">{t('home.heroTitle1')}<br />{t('home.heroTitle2')} <span className="font-serif italic text-amber-800/90 font-medium">{t('home.heroTitle3')}</span></motion.h1>
+          <motion.p initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.4 }} className="text-lg md:text-xl text-stone-500 max-w-md leading-relaxed">{t('home.heroSubtitle')}</motion.p>
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.6 }} className="flex flex-wrap items-center gap-4 pt-4">
-            <button className="bg-[#8b5a45] hover:bg-[#724a38] text-white px-8 py-4 text-sm font-bold tracking-wider rounded-md transition-all shadow-md hover:shadow-lg">Explore Catalog</button>
-            <button className="bg-transparent hover:bg-stone-200/50 text-[#8b5a45] border border-stone-200 px-8 py-4 text-sm font-bold tracking-wider rounded-md transition-all">Read the Editorial</button>
+            <button className="bg-[#8b5a45] hover:bg-[#724a38] text-white px-8 py-4 text-sm font-bold tracking-wider rounded-md transition-all shadow-md hover:shadow-lg">{t('home.btnExplore')}</button>
+            <button className="bg-transparent hover:bg-stone-200/50 text-[#8b5a45] border border-stone-200 px-8 py-4 text-sm font-bold tracking-wider rounded-md transition-all">{t('home.btnEditorial')}</button>
           </motion.div>
         </div>
         <HeroImage />

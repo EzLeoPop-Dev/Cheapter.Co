@@ -188,7 +188,7 @@ export default function CatalogPage() {
       author: book.author || "Unknown Author",
       price: `฿${book.price.toLocaleString()}`,
       originalPrice: null,
-      tag: book.quantity === 0 ? "Out of Stock" : null,
+      tag: book.quantity === 0 && book.format !== 'EBook' ? "Out of Stock" : null,
       imageUrl: book.imageUrl || "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400&q=80",
       isWide: false,
       quantity: book.quantity,

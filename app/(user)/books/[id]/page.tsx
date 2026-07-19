@@ -58,6 +58,9 @@ export default function BookDetailPage() {
     description: string | null;
     imageUrl: string | null;
     quantity: number;
+    format: string;
+    ebookFile?: string | null;
+    sampleLimit?: number | null;
   }>(null);
   const [isWishlisted, setIsWishlisted] = useState(false);
 
@@ -150,6 +153,7 @@ export default function BookDetailPage() {
         imageUrl: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop",
         quote: "",
         quantity: 0,
+        format: "Hardcover",
       };
     }
 
@@ -163,6 +167,9 @@ export default function BookDetailPage() {
       imageUrl: apiBook.imageUrl || "https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop",
       quote: "",
       quantity: apiBook.quantity,
+      format: apiBook.format,
+      ebookFile: apiBook.ebookFile,
+      sampleLimit: apiBook.sampleLimit,
     };
   }, [apiBook]);
 
@@ -252,7 +259,7 @@ export default function BookDetailPage() {
             </button>
 
             <div className="flex items-center gap-3">
-              {BOOK.quantity > 0 ? (
+              {BOOK.quantity > 0 || BOOK.format === 'EBook' ? (
                 <button className="bg-[#8b5a45] hover:bg-[#724a38] text-white px-8 py-2.5 rounded-md font-bold text-xs transition-all shadow-sm">
                   Add to Cart
                 </button>
@@ -261,7 +268,7 @@ export default function BookDetailPage() {
                   สินค้าหมด (Out of Stock)
                 </button>
               )}
-              {BOOK.quantity === 0 && (
+              {BOOK.quantity === 0 && BOOK.format !== 'EBook' && (
                 <button className="bg-stone-800 hover:bg-stone-900 text-white px-6 py-2.5 rounded-md font-bold text-xs transition-all shadow-sm">
                   แจ้งเตือนเมื่อมีสินค้า
                 </button>
@@ -277,6 +284,21 @@ export default function BookDetailPage() {
                 <Heart size={14} className={isWishlisted ? "fill-[#b46b45]" : ""} />
                 {isWishlisted ? "Wishlisted" : "Wishlist"}
               </button>
+              
+              {BOOK.format === 'EBook' && BOOK.ebookFile && BOOK.sampleLimit && (
+                <button 
+                  onClick={() => {
+                    let url = BOOK.ebookFile;
+                    if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+                      url = 'https://' + url;
+                    }
+                    window.open(url, '_blank', 'noopener,noreferrer');
+                  }}
+                  className="bg-stone-100 hover:bg-stone-200 text-stone-700 px-6 py-2.5 rounded-md font-bold text-xs transition-all shadow-sm border border-stone-200"
+                >
+                  อ่านตัวอย่าง ({BOOK.sampleLimit} หน้า)
+                </button>
+              )}
             </div>
           </div>
         </div>

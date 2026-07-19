@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Image as ImageIcon, ChevronLeft, ChevronRight, ShoppingCart, Star } from "lucide-react";
 import Link from "next/link";
 
@@ -31,57 +31,7 @@ const bestSellers: Book[] = [
   { id: "4", title: "แสงดาวเหนือฟ้า", author: "พิมพ์พร พรหมทา", price: "฿220", rating: 4.5, reviews: "640", imageUrl: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=400&auto=format&fit=crop" },
 ];
 
-const bundleBooks: Book[] = [
-  { id: "b1", title: "The Architecture of Silence", author: "M. Lin", price: "฿520", rating: 4.9, reviews: "2.1k", imageUrl: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=200&auto=format&fit=crop" },
-  { id: "b2", title: "Wabi Sabi", author: "Leonard Koren", price: "฿380", rating: 4.7, reviews: "850", imageUrl: "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?q=80&w=200&auto=format&fit=crop" },
-  { id: "b3", title: "In Praise of Shadows", author: "Junichiro Tanizaki", price: "฿350", rating: 4.6, reviews: "920", imageUrl: "https://images.unsplash.com/photo-1629196914234-a69077ee8478?q=80&w=200&auto=format&fit=crop" },
-  { id: "b4", title: "Kitchen", author: "Banana Yoshimoto", price: "฿410", rating: 4.8, reviews: "1.5k", imageUrl: "https://images.unsplash.com/photo-1512820790803-83ca734da794?q=80&w=200&auto=format&fit=crop" },
-];
 
-const bundlePacks = [
-  {
-    id: "pack-1",
-    title: "Poetry Collection Pack",
-    curator: "Sarah Chen",
-    description: "A beautiful collection of modern poetry exploring space, light, and design.",
-    price: "฿1,490",
-    originalPrice: "฿1,660",
-    images: [
-      "https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=600&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?q=80&w=600&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1512820790803-83ca734da794?q=80&w=600&auto=format&fit=crop"
-    ],
-    books: bundleBooks
-  },
-  {
-    id: "pack-2",
-    title: "Business & Strategy Pack",
-    curator: "Michael Wong",
-    description: "Essential reads for aspiring entrepreneurs and business strategists.",
-    price: "฿1,890",
-    originalPrice: "฿2,200",
-    images: [
-      "https://images.unsplash.com/photo-1474932430478-367d16b99031?q=80&w=600&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1532012197267-da84d127e765?q=80&w=600&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1511108690759-009324a90311?q=80&w=600&auto=format&fit=crop"
-    ],
-    books: [bundleBooks[1], bundleBooks[2], bundleBooks[3]]
-  },
-  {
-    id: "pack-3",
-    title: "Mindfulness Retreat Pack",
-    curator: "Emma Stone",
-    description: "Find your inner peace with these highly recommended mindfulness guides.",
-    price: "฿1,250",
-    originalPrice: "฿1,450",
-    images: [
-      "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?q=80&w=600&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1516979187457-637abb4f9353?q=80&w=600&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?q=80&w=600&auto=format&fit=crop"
-    ],
-    books: [bundleBooks[0], bundleBooks[3], bundleBooks[2]]
-  }
-];
 
 function BookCard({ book }: { book: Book }) {
   return (
@@ -191,16 +141,37 @@ function BestSellerCard({ book, rank }: { book: Book; rank: number }) {
 }
 
 export function RecommendedSection({ books = mockBooks }: { books?: Book[] }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const scroll = (direction: 'left' | 'right') => {
+    if (scrollRef.current) {
+      const scrollAmount = direction === 'left' ? -300 : 300;
+      scrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
+
   return (
     <section className="w-full max-w-7xl mx-auto px-8 pt-12 pb-4">
       <div className="flex items-end justify-between mb-8">
         <h2 className="text-2xl md:text-3xl font-bold text-stone-900 tracking-tight">Recommended This Week</h2>
-        <button className="text-xs font-bold text-amber-900 hover:text-[#b46b45] transition-colors border-b border-transparent hover:border-[#b46b45]">
-          View All
-        </button>
+        
+        <div className="flex items-center gap-6">
+          <button className="text-xs font-bold text-amber-900 hover:text-[#b46b45] transition-colors border-b border-transparent hover:border-[#b46b45]">
+            View All
+          </button>
+          
+          <div className="flex items-center gap-2">
+            <button onClick={() => scroll('left')} className="w-8 h-8 rounded-full border border-stone-300 flex items-center justify-center text-stone-400 hover:text-stone-800 hover:border-stone-400 transition-colors bg-white shadow-sm">
+              <ChevronLeft size={16} />
+            </button>
+            <button onClick={() => scroll('right')} className="w-8 h-8 rounded-full border border-stone-300 flex items-center justify-center text-stone-400 hover:text-stone-800 hover:border-stone-400 transition-colors bg-white shadow-sm">
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide snap-x">
+      <div ref={scrollRef} className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide snap-x">
         {books.map((book) => (
           <div key={book.id} className="snap-start">
             <BookCard book={book} />
@@ -212,6 +183,15 @@ export function RecommendedSection({ books = mockBooks }: { books?: Book[] }) {
 }
 
 export function BestSellersSection({ books = bestSellers }: { books?: Book[] }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const scroll = (direction: 'left' | 'right') => {
+    if (scrollRef.current) {
+      const scrollAmount = direction === 'left' ? -300 : 300;
+      scrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
+
   return (
     <section className="w-full max-w-7xl mx-auto px-8 pt-4 pb-16 mb-10 overflow-hidden relative">
       <div className="flex items-center justify-between mb-12">
@@ -219,16 +199,16 @@ export function BestSellersSection({ books = bestSellers }: { books?: Book[] }) 
 
         {/* Navigation Arrows */}
         <div className="flex items-center gap-2 relative z-20">
-          <button className="w-8 h-8 rounded-full border border-stone-300 flex items-center justify-center text-stone-400 hover:text-stone-800 hover:border-stone-400 transition-colors bg-white shadow-sm">
+          <button onClick={() => scroll('left')} className="w-8 h-8 rounded-full border border-stone-300 flex items-center justify-center text-stone-400 hover:text-stone-800 hover:border-stone-400 transition-colors bg-white shadow-sm">
             <ChevronLeft size={16} />
           </button>
-          <button className="w-8 h-8 rounded-full border border-stone-300 flex items-center justify-center text-stone-400 hover:text-stone-800 hover:border-stone-400 transition-colors bg-white shadow-sm">
+          <button onClick={() => scroll('right')} className="w-8 h-8 rounded-full border border-stone-300 flex items-center justify-center text-stone-400 hover:text-stone-800 hover:border-stone-400 transition-colors bg-white shadow-sm">
             <ChevronRight size={16} />
           </button>
         </div>
       </div>
 
-      <div className="flex gap-8 overflow-x-auto pb-10 scrollbar-hide snap-x pt-6">
+      <div ref={scrollRef} className="flex gap-8 overflow-x-auto pb-10 scrollbar-hide snap-x pt-6">
         {books.map((book, index) => (
           <div key={book.id} className="snap-start shrink-0">
             <BestSellerCard book={book} rank={index + 1} />
@@ -239,23 +219,56 @@ export function BestSellersSection({ books = bestSellers }: { books?: Book[] }) 
   );
 }
 
-const packImages = [
-  "https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=600&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?q=80&w=600&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1512820790803-83ca734da794?q=80&w=600&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?q=80&w=600&auto=format&fit=crop"
-];
-
 export function StaffPicksSection() {
+  const [bundlePacks, setBundlePacks] = useState<any[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
 
+  useEffect(() => {
+    const fetchPacks = async () => {
+      try {
+        const res = await fetch('/api/admin/book-packs');
+        if (res.ok) {
+          const data = await res.json();
+          const mapped = data.map((pack: any) => ({
+            id: String(pack.id),
+            title: pack.title,
+            curator: pack.author || "Store Staff",
+            description: pack.description || "A curated collection of books.",
+            price: `฿${Number(pack.price).toLocaleString('th-TH')}`,
+            originalPrice: `฿${(Number(pack.price) * 1.2).toLocaleString('th-TH')}`,
+            images: [
+              pack.image || "https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=600&auto=format&fit=crop",
+              "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?q=80&w=600&auto=format&fit=crop"
+            ],
+            books: pack.packItems.map((item: any) => ({
+              id: item.book.id,
+              title: item.book.title,
+              author: item.book.author,
+              imageUrl: item.book.image || "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?q=80&w=200&auto=format&fit=crop"
+            }))
+          }));
+          setBundlePacks(mapped);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchPacks();
+  }, []);
+
   const nextPack = () => {
-    setActiveIndex((prev) => (prev + 1) % bundlePacks.length);
+    if (bundlePacks.length > 0) {
+      setActiveIndex((prev) => (prev + 1) % bundlePacks.length);
+    }
   };
 
   const prevPack = () => {
-    setActiveIndex((prev) => (prev === 0 ? bundlePacks.length - 1 : prev - 1));
+    if (bundlePacks.length > 0) {
+      setActiveIndex((prev) => (prev === 0 ? bundlePacks.length - 1 : prev - 1));
+    }
   };
+
+  if (bundlePacks.length === 0) return null;
 
   return (
     <section className="w-full max-w-[100vw] overflow-hidden py-16 mb-16 border-t border-stone-200/60 mt-4 relative">
@@ -308,14 +321,14 @@ export function StaffPicksSection() {
                   
                   <div className="bg-[#f5f3ee] rounded-xl p-3 shadow-sm border border-[#e6dbcc] relative z-10 w-full">
                     <div className="flex overflow-x-auto snap-x scrollbar-hide rounded-lg" style={{ scrollbarWidth: 'none' }}>
-                      {pack.images.map((src, idx) => (
+                      {pack.images.map((src: string, idx: number) => (
                         <div key={idx} className="snap-center shrink-0 w-full aspect-4/5 relative group">
                           <img src={src} alt={`${pack.title} ${idx + 1}`} className="w-full h-full object-cover rounded-lg shadow-sm" />
                         </div>
                       ))}
                     </div>
                     <div className="flex justify-center gap-1.5 mt-3 mb-1">
-                       {pack.images.map((_, idx) => (
+                       {pack.images.map((_: any, idx: number) => (
                          <div key={idx} className={`h-1.5 rounded-full transition-all ${idx === 0 ? 'w-4 bg-[#b46b45]' : 'w-1.5 bg-stone-300'}`}></div>
                        ))}
                     </div>
@@ -337,7 +350,7 @@ export function StaffPicksSection() {
                   {/* List of Books in Bundle */}
                   <div className="mb-6 flex flex-col gap-2 overflow-y-auto max-h-40 pr-2 scrollbar-thin text-left">
                     <h4 className="text-xs font-bold text-stone-500 uppercase tracking-wider mb-1">Includes {pack.books.length} Books:</h4>
-                    {pack.books.map((book) => (
+                    {pack.books.map((book: any) => (
                       <div key={book.id} className="flex gap-3 items-center bg-white/60 p-2 rounded-lg border border-stone-100 hover:bg-white hover:shadow-sm transition-all">
                         <img src={book.imageUrl} alt={book.title} className="w-10 h-14 object-cover rounded shadow-sm" />
                         <div className="flex flex-col flex-1">
@@ -353,10 +366,9 @@ export function StaffPicksSection() {
                        <p className="font-sans font-bold text-[#b46b45] text-2xl">{pack.price}</p>
                        <p className="line-through text-stone-400 text-sm">{pack.originalPrice}</p>
                      </div>
-                     <button className="w-full sm:w-auto bg-[#8b5a45] hover:bg-[#724a38] text-white px-6 py-3 rounded-md font-bold text-sm transition-colors shadow-sm flex items-center justify-center gap-2">
-                       <ShoppingCart size={16} />
-                       Add Pack to Cart
-                     </button>
+                     <Link href={`/book-packs/${pack.id}`} className="w-full sm:w-auto bg-[#8b5a45] hover:bg-[#724a38] text-white px-6 py-3 rounded-md font-bold text-sm transition-colors shadow-sm flex items-center justify-center gap-2">
+                       View Details
+                     </Link>
                   </div>
                 </div>
               </div>

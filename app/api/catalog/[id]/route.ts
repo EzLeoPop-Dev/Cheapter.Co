@@ -39,6 +39,8 @@ export async function GET(
           rating: dbBook.rating ? Number(dbBook.rating) : null,
           reviewCount: dbBook.reviewCount,
           createdAt: dbBook.createdAt,
+          ebookFile: dbBook.ebookFile,
+          sampleLimit: dbBook.sampleLimit,
         },
       });
     }

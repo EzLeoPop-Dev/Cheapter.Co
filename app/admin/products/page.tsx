@@ -29,6 +29,7 @@ export default function AdminProductsPage() {
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
   const loadProducts = useCallback(async () => {
     setIsLoading(true);
@@ -79,6 +80,20 @@ export default function AdminProductsPage() {
     }
     return result;
   }, [products, typeFilter, statusFilter, searchQuery]);
+
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedIds(filteredProducts.map(p => p.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelect = (id: number) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -134,9 +149,20 @@ export default function AdminProductsPage() {
                 placeholder={t('prod.search')} 
                 value={searchQuery} 
                 onChange={(e) => setSearchQuery(e.target.value)} 
-                className="pl-9 pr-4 py-2 bg-white border border-gray-200 text-gray-900 text-sm rounded-xl outline-none focus:border-gray-900 font-medium shadow-sm w-full sm:w-64 transition-shadow" 
+                className="pl-9 pr-4 py-2 bg-white border border-gray-200 text-gray-900 text-sm rounded-xl outline-none focus:border-gray-900 focus:ring-4 focus:ring-gray-900/10 font-medium shadow-sm w-full sm:w-64 transition-all" 
               />
             </div>
+            {user?.role === 'ADMIN' && selectedIds.length > 0 && (
+              <div className="ml-auto pl-4 border-l border-gray-200 flex items-center animate-in fade-in slide-in-from-right-4 duration-300">
+                <Link 
+                  href={`/admin/purchase-orders/new?books=${selectedIds.join(',')}`}
+                  className="px-5 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-bold shadow-md hover:bg-black hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center gap-2 group"
+                >
+                  <ShoppingCart className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                  สั่งซื้อ {selectedIds.length} รายการ
+                </Link>
+              </div>
+            )}
           </div>
         </div>
 
@@ -157,7 +183,19 @@ export default function AdminProductsPage() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-gray-100 bg-white">
-                  <th className="py-4 px-6 text-xs font-bold text-gray-400 uppercase tracking-widest">{t('prod.col.book')}</th>
+                  {user?.role === 'ADMIN' && (
+                    <th className="py-4 pl-6 pr-2 text-center w-12">
+                      <div className="flex items-center justify-center">
+                        <input 
+                          type="checkbox" 
+                          checked={filteredProducts.length > 0 && selectedIds.length === filteredProducts.length}
+                          onChange={handleSelectAll}
+                          className="w-4.5 h-4.5 rounded border-gray-300 text-gray-900 focus:ring-gray-900/20 focus:ring-offset-0 cursor-pointer transition-colors"
+                        />
+                      </div>
+                    </th>
+                  )}
+                  <th className={`py-4 px-6 text-xs font-bold text-gray-400 uppercase tracking-widest ${user?.role === 'ADMIN' ? 'pl-2' : ''}`}>{t('prod.col.book')}</th>
                   <th className="py-4 px-6 text-xs font-bold text-gray-400 uppercase tracking-widest text-center">{t('prod.col.type')}</th>
                   {user?.role === 'ADMIN' && (
                     <th className="py-4 px-6 text-xs font-bold text-gray-400 uppercase tracking-widest text-center">Stock</th>
@@ -171,11 +209,24 @@ export default function AdminProductsPage() {
                 {filteredProducts.map((product) => {
                   const typeMeta = TYPE_META[product.bookType] ?? TYPE_META.Hardcover;
                   const TypeIcon = typeMeta.icon;
-                  const displayStatus = product.status || (product.stock > 0 ? 'active' : 'draft');
+                  const isDigital = product.bookType === 'EBook' || product.bookType === 'Serial';
+                  const displayStatus = product.status || (isDigital || product.stock > 0 ? 'active' : 'draft');
                   
                   return (
-                    <tr key={product.id} className="hover:bg-gray-50/80 transition-colors group">
-                      <td className="py-4 px-6">
+                    <tr key={product.id} className={`transition-colors group ${selectedIds.includes(product.id) ? 'bg-gray-50/80' : 'hover:bg-gray-50/50'}`}>
+                      {user?.role === 'ADMIN' && (
+                        <td className="py-4 pl-6 pr-2 text-center">
+                          <div className="flex items-center justify-center">
+                            <input 
+                              type="checkbox"
+                              checked={selectedIds.includes(product.id)}
+                              onChange={() => handleSelect(product.id)}
+                              className="w-4.5 h-4.5 rounded border-gray-300 text-gray-900 focus:ring-gray-900/20 focus:ring-offset-0 cursor-pointer transition-colors"
+                            />
+                          </div>
+                        </td>
+                      )}
+                      <td className={`py-4 px-6 ${user?.role === 'ADMIN' ? 'pl-2' : ''}`}>
                         <div className="flex items-center gap-4">
                           <div className="w-12 h-16 rounded-md overflow-hidden bg-gray-100 border border-gray-200 shrink-0">
                             {product.image ? (
@@ -208,7 +259,7 @@ export default function AdminProductsPage() {
                       </td>
                       {user?.role === 'ADMIN' && (
                         <td className="py-4 px-6 text-center font-mono text-sm font-bold text-gray-700">
-                          {product.stock}
+                          {product.bookType === 'EBook' || product.bookType === 'Serial' ? '-' : product.stock}
                         </td>
                       )}
                       <td className="py-4 px-6 text-right font-bold text-gray-900 font-mono text-sm">

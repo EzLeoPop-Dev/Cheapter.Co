@@ -8,107 +8,47 @@ import { useLanguage } from "../../context/LanguageContext";
 
 export default function BookPacksCatalogPage() {
   const { t } = useLanguage();
-  const [packs, setPacks] = useState([]);
+  const [packs, setPacks] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // ใช้งาน Mock Data ให้ตรงกับ Design ที่ขอมา
-    const mockPacks = [
-      {
-        id: "pack-1",
-        title: "Poetry Collection Pack",
-        curator: "Sarah Chen",
-        description: "A beautiful collection of modern poetry exploring space, light, and design.",
-        price: "1,490",
-        originalPrice: "1,660",
-        stock: 10,
-        badge: "Staff Pick",
-        image: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=800&q=80",
-        packItems: [
-          { 
-            id: 1, 
-            quantity: 1, 
-            book: { 
-              title: "The Architecture of Silence", 
-              author: "M. Lin",
-              cover: "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?w=200&q=80" 
-            } 
-          },
-          { 
-            id: 2, 
-            quantity: 1, 
-            book: { 
-              title: "Wabi Sabi", 
-              author: "Leonard Koren",
-              cover: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=200&q=80"
-            } 
-          },
-          { 
-            id: 3, 
-            quantity: 1, 
-            book: { 
-              title: "Milk and Honey", 
-              author: "Rupi Kaur",
-              cover: "https://images.unsplash.com/photo-1626618012641-bfbca5a5d239?w=200&q=80"
-            } 
-          },
-          { 
-            id: 4, 
-            quantity: 1, 
-            book: { 
-              title: "Devotions", 
-              author: "Mary Oliver",
-              cover: "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?w=200&q=80"
-            } 
-          }
-        ]
-      },
-      {
-        id: "pack-2",
-        title: "Classic Literature Bundle",
-        curator: "John Doe",
-        description: "A collection of timeless classics from renowned authors that shaped literature.",
-        price: "1,200",
-        originalPrice: "1,450",
-        stock: 5,
-        badge: "Best Seller",
-        image: "https://images.unsplash.com/photo-1476275466078-4007374efac4?w=800&q=80",
-        packItems: [
-          { 
-            id: 5, 
-            quantity: 1, 
-            book: { 
-              title: "Pride and Prejudice", 
-              author: "Jane Austen",
-              cover: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=200&q=80"
-            } 
-          },
-          { 
-            id: 6, 
-            quantity: 1, 
-            book: { 
-              title: "To Kill a Mockingbird", 
-              author: "Harper Lee",
-              cover: "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?w=200&q=80"
-            } 
-          },
-          { 
-            id: 7, 
-            quantity: 1, 
-            book: { 
-              title: "1984", 
-              author: "George Orwell",
-              cover: "https://images.unsplash.com/photo-1626618012641-bfbca5a5d239?w=200&q=80"
-            } 
-          }
-        ]
+    const fetchPacks = async () => {
+      try {
+        setIsLoading(true);
+        const res = await fetch('/api/admin/book-packs');
+        if (!res.ok) throw new Error('Failed to fetch book packs');
+        const data = await res.json();
+        
+        const formattedPacks = data.map((pack: any) => ({
+          id: String(pack.id),
+          title: pack.title,
+          curator: pack.author || "Store Staff",
+          description: pack.description || "A curated collection of books.",
+          price: Number(pack.price).toLocaleString('th-TH'),
+          originalPrice: (Number(pack.price) * 1.2).toLocaleString('th-TH'), // Mock original price for now
+          stock: pack.stock,
+          badge: pack.stockStatus === 'InStock' ? "Available" : "Limited",
+          image: pack.image || "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=800&q=80",
+          packItems: pack.packItems.map((item: any) => ({
+            id: item.id,
+            quantity: item.quantity,
+            book: {
+              title: item.book.title,
+              author: item.book.author,
+              cover: item.book.image || "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?w=200&q=80"
+            }
+          }))
+        }));
+        
+        setPacks(formattedPacks);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setIsLoading(false);
       }
-    ];
-
-    setTimeout(() => {
-      setPacks(mockPacks);
-      setIsLoading(false);
-    }, 500);
+    };
+    
+    fetchPacks();
   }, []);
 
   return (
@@ -184,7 +124,7 @@ export default function BookPacksCatalogPage() {
                         {t('pack.includes1')} {pack.packItems.length} {t('pack.includes2')}
                       </h4>
                       <div className="pr-1 max-h-[110px] overflow-y-auto custom-scrollbar space-y-2 relative">
-                        {pack.packItems.map((item, idx) => (
+                        {pack.packItems.map((item: any, idx: number) => (
                           <div key={item.id} className="flex items-center gap-3 bg-white rounded-md border border-stone-100 p-2 hover:bg-stone-50 transition-colors">
                             <div className="w-8 h-12 bg-stone-100 rounded-sm flex-shrink-0 overflow-hidden shadow-sm">
                               {item.book.cover && <img src={item.book.cover} className="w-full h-full object-cover" alt={item.book.title} />}

@@ -1,0 +1,1 @@
+﻿const { PrismaClient } = require('@prisma/client'); const prisma = new PrismaClient(); prisma.$executeRawUnsafe('ALTER PUBLICATION supabase_realtime ADD TABLE chat_messages').then(() => console.log('success')).catch(e => console.error(e)).finally(() => prisma.$disconnect());

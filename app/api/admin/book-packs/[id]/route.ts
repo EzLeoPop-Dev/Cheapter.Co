@@ -1,11 +1,9 @@
-import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/src/lib/prisma";
 
-const prisma = new PrismaClient();
-
-export async function GET(req, { params }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const pack = await prisma.book.findUnique({
       where: {
         id: Number(id),
@@ -31,9 +29,9 @@ export async function GET(req, { params }) {
   }
 }
 
-export async function PUT(req, { params }) {
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await req.json();
     const { title, description, price, stock, stockStatus, image, packItems } = body;
 
@@ -53,7 +51,7 @@ export async function PUT(req, { params }) {
         stockStatus,
         image,
         packItems: {
-          create: packItems.map(item => ({
+          create: packItems.map((item: any) => ({
             bookId: Number(item.bookId),
             quantity: Number(item.quantity) || 1
           }))
@@ -71,9 +69,9 @@ export async function PUT(req, { params }) {
   }
 }
 
-export async function DELETE(req, { params }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     
     await prisma.book.delete({
       where: { 

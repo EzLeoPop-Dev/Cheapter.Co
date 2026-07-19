@@ -2,55 +2,83 @@
 
 import { Navbar } from "@/app/components/Navbar";
 import { ShoppingCart, ArrowLeft, BookOpen, Heart, Package } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useLanguage } from "../../../context/LanguageContext";
 
-// Mock Data
-const MOCK_PACKS = [
-  {
-    id: "pack-1",
-    title: "Poetry Collection Pack",
-    curator: "Sarah Chen",
-    description: "A beautiful collection of modern poetry exploring space, light, and design. Perfect for those who appreciate the subtle art of words and silence.",
-    price: 1490,
-    originalPrice: 1660,
-    stock: 10,
-    badge: "Staff Pick",
-    image: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=800&q=80",
-    packItems: [
-      { id: 1, quantity: 1, book: { id: "1", title: "The Architecture of Silence", author: "M. Lin", cover: "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?w=400&q=80" } },
-      { id: 2, quantity: 1, book: { id: "2", title: "Wabi Sabi", author: "Leonard Koren", cover: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400&q=80" } },
-      { id: 3, quantity: 1, book: { id: "3", title: "Milk and Honey", author: "Rupi Kaur", cover: "https://images.unsplash.com/photo-1626618012641-bfbca5a5d239?w=400&q=80" } },
-      { id: 4, quantity: 1, book: { id: "4", title: "Devotions", author: "Mary Oliver", cover: "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?w=400&q=80" } }
-    ]
-  },
-  {
-    id: "pack-2",
-    title: "Classic Literature Bundle",
-    curator: "John Doe",
-    description: "A collection of timeless classics from renowned authors that shaped literature. Essential reading for any literature enthusiast.",
-    price: 1200,
-    originalPrice: 1450,
-    stock: 5,
-    badge: "Best Seller",
-    image: "https://images.unsplash.com/photo-1476275466078-4007374efac4?w=800&q=80",
-    packItems: [
-      { id: 5, quantity: 1, book: { id: "5", title: "Pride and Prejudice", author: "Jane Austen", cover: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400&q=80" } },
-      { id: 6, quantity: 1, book: { id: "6", title: "To Kill a Mockingbird", author: "Harper Lee", cover: "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?w=400&q=80" } },
-      { id: 7, quantity: 1, book: { id: "7", title: "1984", author: "George Orwell", cover: "https://images.unsplash.com/photo-1626618012641-bfbca5a5d239?w=400&q=80" } }
-    ]
-  }
-];
-
 export default function BookPackDetailPage() {
   const params = useParams();
   const { t } = useLanguage();
-  
-  const pack = useMemo(() => {
-    return MOCK_PACKS.find(p => p.id === params.id) || MOCK_PACKS[0];
+  const [pack, setPack] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPack = async () => {
+      try {
+        setIsLoading(true);
+        const res = await fetch(`/api/admin/book-packs/${params.id}`);
+        if (!res.ok) throw new Error('Failed to fetch book pack');
+        const data = await res.json();
+        
+        setPack({
+          id: String(data.id),
+          title: data.title,
+          curator: data.author || "Store Staff",
+          description: data.description || "A curated collection of books.",
+          price: Number(data.price),
+          originalPrice: Number(data.price) * 1.2, // Mock original price
+          stock: data.stock,
+          badge: data.stockStatus === 'InStock' ? "Available" : "Limited",
+          image: data.image || "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=800&q=80",
+          packItems: data.packItems.map((item: any) => ({
+            id: item.id,
+            quantity: item.quantity,
+            book: {
+              id: String(item.book.id),
+              title: item.book.title,
+              author: item.book.author,
+              cover: item.book.image || "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?w=200&q=80"
+            }
+          }))
+        });
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    if (params.id) {
+      fetchPack();
+    }
   }, [params.id]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#faf8f4] flex flex-col font-sans text-stone-800">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="animate-pulse flex flex-col items-center">
+            <div className="w-8 h-8 border-4 border-stone-200 border-t-[#a07455] rounded-full animate-spin mb-4"></div>
+            <div className="text-stone-500">Loading...</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!pack) {
+    return (
+      <div className="min-h-screen bg-[#faf8f4] flex flex-col font-sans text-stone-800">
+        <Navbar />
+        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+          <h2 className="text-2xl font-bold text-stone-800 mb-2">Pack Not Found</h2>
+          <Link href="/book-packs" className="text-[#8b5a45] hover:underline">Return to Catalog</Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#faf8f4] flex flex-col font-sans text-stone-800">
@@ -127,7 +155,7 @@ export default function BookPackDetailPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-            {pack.packItems.map((item) => (
+            {pack.packItems.map((item: any) => (
               <Link href={`/books/${item.book.id}`} key={item.id} className="bg-white p-5 rounded-2xl border border-stone-100 shadow-sm flex items-center gap-5 hover:shadow-md transition-all hover:-translate-y-0.5 group">
                 <div className="w-20 aspect-[2/3] bg-stone-100 rounded-md shadow-sm overflow-hidden shrink-0 relative">
                   <img src={item.book.cover} alt={item.book.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />

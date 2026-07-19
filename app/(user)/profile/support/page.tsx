@@ -1,5 +1,7 @@
-import React from 'react';
+"use client";
+import React, { useState } from 'react';
 import { AlertCircle, MessageSquare, Phone, Mail, FileQuestion } from 'lucide-react';
+import LiveChatWidget from '@/app/components/LiveChatWidget';
 
 export default function SupportPage() {
   const faqs = [
@@ -7,6 +9,8 @@ export default function SupportPage() {
     { q: 'สามารถยกเลิกคำสั่งซื้อได้หรือไม่?', a: 'สามารถยกเลิกได้ภายใน 1 ชั่วโมงหลังจากทำการสั่งซื้อ โดยไปที่หน้ารายละเอียดคำสั่งซื้อ' },
     { q: 'E-book ที่ซื้อแล้วสามารถอ่านได้ที่ไหน?', a: 'สามารถอ่านได้ทันทีผ่านเว็บไซต์ที่เมนู "คลัง E-book" หรือดาวน์โหลดแอปพลิเคชันของเราบนมือถือ' }
   ];
+
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   return (
     <div className="space-y-8">
@@ -16,8 +20,12 @@ export default function SupportPage() {
           แจ้งปัญหาและติดต่อเรา
         </h2>
         
+        
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <div className="bg-[#fefdfb] p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col items-center text-center hover:border-[#bc876e] hover:shadow-md transition-all cursor-pointer">
+          <div 
+            onClick={() => setIsChatOpen(true)}
+            className="bg-[#fefdfb] p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col items-center text-center hover:border-[#bc876e] hover:shadow-md transition-all cursor-pointer"
+          >
             <div className="w-12 h-12 bg-[#fae8df] rounded-full flex items-center justify-center mb-3">
               <MessageSquare className="h-6 w-6 text-[#bc876e]" />
             </div>
@@ -59,11 +67,14 @@ export default function SupportPage() {
             </div>
             <div>
               <label className="block text-sm text-gray-600 mb-1">หมายเลขคำสั่งซื้อ (ถ้ามี)</label>
-              <input 
-                type="text" 
-                placeholder="เช่น ORD-2023-001" 
+              <select 
                 className="w-full px-4 py-2.5 rounded-lg border border-gray-200 bg-[#fefdfb] focus:outline-none focus:ring-2 focus:ring-[#bc876e] focus:border-transparent text-sm"
-              />
+              >
+                <option value="">-- ไม่ระบุ หรือ เลือกคำสั่งซื้อ --</option>
+                <option value="ORD-2023-001">ORD-2023-001 (15 ต.ค. 2023)</option>
+                <option value="ORD-2023-002">ORD-2023-002 (2 พ.ย. 2023)</option>
+                <option value="ORD-2023-003">ORD-2023-003 (10 ธ.ค. 2023)</option>
+              </select>
             </div>
             <div>
               <label className="block text-sm text-gray-600 mb-1">รายละเอียดปัญหา</label>
@@ -95,6 +106,7 @@ export default function SupportPage() {
           </div>
         </div>
       </div>
+      {isChatOpen && <LiveChatWidget onClose={() => setIsChatOpen(false)} />}
     </div>
   );
 }

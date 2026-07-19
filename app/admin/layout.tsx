@@ -18,11 +18,14 @@ import {
   LogOut,
   ChevronRight,
   Bell,
-  Globe
+  Globe,
+  AlertTriangle,
+  TrendingUp
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { signOut } from 'next-auth/react'; 
+import { createClient } from '@/src/lib/supabase/client';
 
 function AdminLayoutInner({ children }) {
   const pathname = usePathname();
@@ -33,6 +36,10 @@ function AdminLayoutInner({ children }) {
   const [dbUser, setDbUser] = useState<any>(null);
   // 👇 1. เพิ่ม State สำหรับเช็คว่าดึงข้อมูลจาก DB เสร็จหรือยัง (ตั้งต้นเป็น true เพื่อให้หมุนรอเลย)
   const [isFetchingProfile, setIsFetchingProfile] = useState(true);
+  const [lowStockItems, setLowStockItems] = useState<any[]>([]);
+  const [stockInItems, setStockInItems] = useState<any[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifTab, setNotifTab] = useState<'lowStock' | 'stockIn'>('lowStock');
 
   useEffect(() => {
     if (user) {
@@ -50,6 +57,44 @@ function AdminLayoutInner({ children }) {
       setIsFetchingProfile(false); // ถ้าโหลด Auth เสร็จแล้วแต่ไม่มี user ก็เลิกโหลด
     }
   }, [user, isLoading]);
+
+  useEffect(() => {
+    // Fetch notifications if user is admin or staff
+    if (user && (user.role === 'ADMIN' || user.role === 'STAFF')) {
+      const fetchNotifications = () => {
+        fetch('/api/admin/notifications/low-stock')
+          .then(res => res.json())
+          .then(data => {
+            if (!data.error) {
+              setLowStockItems(data.lowStock?.items || []);
+              setStockInItems(data.stockIn?.items || []);
+            }
+          })
+          .catch(err => console.error(err));
+      };
+
+      // Initial fetch
+      fetchNotifications();
+
+      // Subscribe to real-time changes
+      const supabase = createClient();
+      const channel = supabase
+        .channel('realtime-stock')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'books' }, () => fetchNotifications())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_movements' }, () => fetchNotifications())
+        .subscribe();
+
+      // Fallback Polling
+      const pollInterval = setInterval(fetchNotifications, 5000);
+
+      return () => {
+        supabase.removeChannel(channel);
+        clearInterval(pollInterval);
+      };
+    }
+  }, [user]);
+
+  const totalNotifCount = lowStockItems.length + stockInItems.length;
 
   const handleLogout = async (e) => {
     e.preventDefault();
@@ -210,10 +255,94 @@ function AdminLayoutInner({ children }) {
               <Globe className="w-4 h-4" />
               {lang === 'th' ? 'EN' : 'TH'}
             </button>
-            <button className="relative text-gray-400 hover:text-[#1a1a1a] transition-colors p-2 hover:bg-gray-100 rounded-full">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
-            </button>
+            <div className="relative">
+              <button 
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="relative text-gray-400 hover:text-[#1a1a1a] transition-colors p-2 hover:bg-gray-100 rounded-full"
+              >
+                <Bell className="w-5 h-5" />
+                {totalNotifCount > 0 && (
+                  <span className="absolute top-1 right-1.5 w-4 h-4 flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full border border-white">
+                    {totalNotifCount > 99 ? '99+' : totalNotifCount}
+                  </span>
+                )}
+              </button>
+              
+              {showNotifications && (
+                <div className="absolute right-0 mt-2 w-96 bg-white rounded-xl shadow-[0_4px_24px_rgba(0,0,0,0.12)] border border-gray-100 z-50 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                    <h3 className="text-sm font-bold text-gray-800">Notifications</h3>
+                    <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full font-semibold">{totalNotifCount}</span>
+                  </div>
+                  {/* Tabs */}
+                  <div className="flex border-b border-gray-100">
+                    <button
+                      onClick={() => setNotifTab('lowStock')}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold transition-colors ${
+                        notifTab === 'lowStock' ? 'text-red-600 border-b-2 border-red-500 bg-red-50/30' : 'text-gray-400 hover:text-gray-600'
+                      }`}
+                    >
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      Low Stock ({lowStockItems.length})
+                    </button>
+                    <button
+                      onClick={() => setNotifTab('stockIn')}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold transition-colors ${
+                        notifTab === 'stockIn' ? 'text-green-600 border-b-2 border-green-500 bg-green-50/30' : 'text-gray-400 hover:text-gray-600'
+                      }`}
+                    >
+                      <TrendingUp className="w-3.5 h-3.5" />
+                      Stock In ({stockInItems.length})
+                    </button>
+                  </div>
+                  <div className="max-h-[320px] overflow-y-auto custom-scrollbar">
+                    {notifTab === 'lowStock' && (
+                      lowStockItems.length === 0 ? (
+                        <div className="p-6 text-center text-sm text-gray-400">ไม่มีสินค้าใกล้หมด</div>
+                      ) : (
+                        lowStockItems.map(item => (
+                          <Link 
+                            key={item.id} 
+                            href="/admin/stock"
+                            onClick={() => setShowNotifications(false)}
+                            className="flex gap-3 px-4 py-3 hover:bg-red-50/50 border-b border-gray-50 last:border-0 transition-colors"
+                          >
+                            <div className="w-10 h-14 bg-gray-100 rounded flex-shrink-0 overflow-hidden">
+                              {item.image && <img src={item.image} alt={item.title} className="w-full h-full object-cover" />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-gray-800 truncate">{item.title}</p>
+                              <p className="text-xs text-red-600 font-medium mt-1">⚠️ เหลือ {item.stock} เล่ม</p>
+                            </div>
+                          </Link>
+                        ))
+                      )
+                    )}
+                    {notifTab === 'stockIn' && (
+                      stockInItems.length === 0 ? (
+                        <div className="p-6 text-center text-sm text-gray-400">ไม่มีสินค้าเข้าคลังล่าสุด</div>
+                      ) : (
+                        stockInItems.map(item => (
+                          <div 
+                            key={item.id}
+                            className="flex gap-3 px-4 py-3 hover:bg-green-50/50 border-b border-gray-50 last:border-0 transition-colors"
+                          >
+                            <div className="w-10 h-14 bg-gray-100 rounded flex-shrink-0 overflow-hidden">
+                              {item.image && <img src={item.image} alt={item.title} className="w-full h-full object-cover" />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-gray-800 truncate">{item.title}</p>
+                              <p className="text-xs text-green-600 font-medium mt-0.5">📦 เข้า +{item.quantity} เล่ม</p>
+                              <p className="text-[10px] text-gray-400 mt-0.5">จาก {item.reference} • {new Date(item.createdAt).toLocaleString('th-TH')}</p>
+                            </div>
+                          </div>
+                        ))
+                      )
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
             <div className="h-8 w-px bg-gray-200"></div>
             <Link 
               href="/" 

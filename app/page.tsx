@@ -10,9 +10,26 @@ export default async function Home() {
 
   if (process.env.DATABASE_URL?.trim()) {
     const { prisma } = await import('@/src/lib/prisma');
+    const activeWhere = {
+      NOT: {
+        OR: [
+          { sampleData: { path: ["adminStatus"], equals: "draft" } },
+          { sampleData: { path: ["adminStatus"], equals: "discontinued" } },
+          {
+            AND: [
+              {
+                NOT: { sampleData: { path: ["adminStatus"], equals: "active" } },
+              },
+              { stock: { lte: 0 } },
+            ],
+          },
+        ],
+      },
+    };
+
     const [books, bestSellers] = await Promise.all([
-      prisma.book.findMany({ orderBy: { createdAt: 'desc' }, take: 10 }),
-      prisma.book.findMany({ orderBy: [{ reviewCount: 'desc' }, { rating: 'desc' }], take: 10 }),
+      prisma.book.findMany({ where: activeWhere, orderBy: { createdAt: 'desc' }, take: 10 }),
+      prisma.book.findMany({ where: activeWhere, orderBy: [{ reviewCount: 'desc' }, { rating: 'desc' }], take: 10 }),
     ]);
 
     const formatBook = (book: typeof books[number]) => ({

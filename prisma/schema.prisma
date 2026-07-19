@@ -99,6 +99,7 @@ model User {
   addresses     Address[]
   orders        Order[]
   tickets       Ticket[]
+  chatSessions  ChatSession[]
   wishlistItems WishlistItem[]
   cartItems     CartItem[]
   reviews       Review[]
@@ -173,6 +174,8 @@ model Book {
   rating      Decimal?    @db.Decimal(3, 1)
   reviewCount Int         @default(0) 
   sampleData  Json?       // { type: "pdf"/"epub", chapters: [...] } สำหรับอ่านตัวอย่างก่อนซื้อ
+  ebookFile   String?     @db.Text // เก็บ URL ของไฟล์ E-book ตัวเต็ม
+  sampleLimit Int?        // จำนวนหน้าที่ให้ทดลองอ่านได้ฟรี (สำหรับ PDF/EPUB)
 
   publisherId Int?
   categoryId  Int?
@@ -190,6 +193,8 @@ model Book {
   libraryOwners UserLibrary[]   // เชื่อมโยงกับผู้ที่เป็นเจ้าของ E-book เล่มนี้
   packItems       BookPackItem[] @relation("PackToItems")
   includedInPacks BookPackItem[] @relation("ItemToPack")
+  purchaseOrderItems PurchaseOrderItem[]
+  stockMovements     StockMovement[]
 
   @@index([bookType])
   @@index([categoryId])
@@ -439,6 +444,41 @@ model Ticket {
 }
 
 // ─────────────────────────────────────────────
+//  LIVE CHAT (ระบบแชทแบบเรียลไทม์)
+// ─────────────────────────────────────────────
+
+model ChatSession {
+  id        String       @id // "CHAT-1234"
+  status    TicketStatus @default(OPEN)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  userId    String?
+  user      User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  messages  ChatMessage[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id         Int      @id @default(autoincrement())
+  sessionId  String
+  senderId   String?  // null if guest
+  senderRole String   // "CUSTOMER", "ADMIN", "STAFF"
+  message    String   @db.Text
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  session    ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@map("chat_messages")
+}
+
+// ─────────────────────────────────────────────
 //  BOOK PACKS
 // ─────────────────────────────────────────────
 
@@ -456,4 +496,77 @@ model BookPackItem {
   @@index([packId])
   @@index([bookId])
   @@map("book_pack_items")
+}
+
+// ─────────────────────────────────────────────
+//  PURCHASE ORDERS & STOCK MOVEMENTS
+// ─────────────────────────────────────────────
+
+enum POStatus {
+  Pending
+  Partial
+  Completed
+  Cancelled
+}
+
+enum StockMovementType {
+  IN
+  OUT
+  DAMAGED
+  ADJUST
+}
+
+model PurchaseOrder {
+  id           String   @id              // "PO-YYMM-NNN"
+  supplier     String
+  status       POStatus @default(Pending)
+  expectedDate DateTime?
+  createdBy    String
+  note         String?  @db.Text
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  items        PurchaseOrderItem[]
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id              Int      @id @default(autoincrement())
+  ordered         Int
+  received        Int      @default(0)
+  unitCost        Decimal  @db.Decimal(10, 2)
+
+  purchaseOrderId String
+  bookId          Int
+
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  book            Book          @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@index([purchaseOrderId])
+  @@index([bookId])
+  @@map("purchase_order_items")
+}
+
+model StockMovement {
+  id          Int               @id @default(autoincrement())
+  type        StockMovementType
+  quantity    Int
+  reference   String?           // e.g. "PO-2607-001"
+  performedBy String
+  note        String?           @db.Text
+  balanceAfter Int              @default(0)
+
+  bookId      Int
+  book        Book              @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime          @default(now())
+
+  @@index([bookId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("stock_movements")
 }

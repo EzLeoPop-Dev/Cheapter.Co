@@ -5,6 +5,7 @@ import { useLanguage } from '../../../context/LanguageContext';
 import { Image as ImageIcon, UploadCloud, ArrowLeft, Save, X, Book, Package, AlertCircle, Scan, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@/src/lib/supabase/client';
 import MockBarcodeScannerModal from '../../components/MockBarcodeScannerModal';
 import ChapterModal from '../../components/ChapterModal';
 import { Layers, Edit, Trash2 } from 'lucide-react';
@@ -16,6 +17,7 @@ export default function AdminNewProductPage() {
   const [showScanner, setShowScanner] = useState(false);
   const [showChapterModal, setShowChapterModal] = useState(false);
   const [editingChapter, setEditingChapter] = useState<any>(null);
+  const [categories, setCategories] = useState<any[]>([]);
   
   const [formData, setFormData] = useState({
     title: '',
@@ -31,8 +33,12 @@ export default function AdminNewProductPage() {
     status: 'draft',
     quantity: 0,
     trialLimit: '',
-    chapters: []
+    chapters: [],
+    ebookFile: ''
   });
+
+  const [isUploading, setIsUploading] = useState(false);
+  const [ebookUploadProgress, setEbookUploadProgress] = useState<string | null>(null);
 
   const router = useRouter();
 
@@ -95,8 +101,52 @@ export default function AdminNewProductPage() {
     }));
   };
 
+  const handleEbookUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // File validation
+    if (!['application/pdf', 'application/epub+zip'].includes(file.type) && !file.name.endsWith('.epub')) {
+      alert('กรุณาอัปโหลดไฟล์ PDF หรือ EPUB เท่านั้น');
+      return;
+    }
+    
+    try {
+      setEbookUploadProgress('กำลังอัปโหลดไฟล์...');
+      const supabase = createClient();
+      
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `ebooks/${fileName}`;
+      
+      const { data, error } = await supabase.storage
+        .from('ebooks')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+        
+      if (error) {
+        throw error;
+      }
+      
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('ebooks')
+        .getPublicUrl(filePath);
+        
+      setFormData(prev => ({ ...prev, ebookFile: publicUrl }));
+      setEbookUploadProgress('อัปโหลดสำเร็จแล้ว');
+    } catch (err: any) {
+      console.error('Error uploading ebook:', err);
+      alert(`อัปโหลดไฟล์ไม่สำเร็จ: ${err.message || 'Unknown error'}`);
+      setEbookUploadProgress(null);
+    }
+  };
+
   const handleSave = async (e) => {
     e.preventDefault();
+    if (!formData.title || !formData.price || !formData.sku) return;
     setIsSaving(true);
 
     try {
@@ -110,6 +160,10 @@ export default function AdminNewProductPage() {
         image: coverImage || null,
         bookType: mapUiTypeToDbType(formData.type),
         status: formData.status,
+        ...(formData.type === 'ebook' ? { 
+          ebookFile: formData.ebookFile, 
+          sampleLimit: formData.trialLimit ? Number(formData.trialLimit) : null 
+        } : {}),
       };
 
       const res = await fetch('/api/admin/books', {
@@ -338,10 +392,48 @@ export default function AdminNewProductPage() {
               <div className="space-y-5">
                 <div>
                   <label className="text-sm font-bold text-gray-700 block mb-1.5">อัปโหลดไฟล์ E-Book (PDF/EPUB) <span className="text-red-500">*</span></label>
-                  <div className="border-2 border-dashed border-gray-200 rounded-xl p-4 flex items-center justify-center bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer group">
-                    <UploadCloud className="w-6 h-6 text-gray-400 group-hover:text-gray-600 transition-colors mr-3" />
-                    <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">คลิกเพื่อเลือกไฟล์หนังสือ</span>
-                  </div>
+                  {!formData.ebookFile ? (
+                    <div className="relative">
+                      <input
+                        type="file"
+                        accept=".pdf,.epub"
+                        onChange={handleEbookUpload}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                        title="คลิกเพื่อเลือกไฟล์"
+                        disabled={!!ebookUploadProgress && ebookUploadProgress !== 'อัปโหลดสำเร็จแล้ว'}
+                      />
+                      <div className="border-2 border-dashed border-gray-200 rounded-xl p-4 flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 transition-colors">
+                        <UploadCloud className="w-8 h-8 text-gray-400 mb-2" />
+                        <span className="text-sm font-medium text-gray-700">{ebookUploadProgress || 'คลิกเพื่อเลือกไฟล์หนังสือ'}</span>
+                        <span className="text-xs text-gray-500 mt-1">รองรับไฟล์ .pdf, .epub</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="border border-green-200 bg-green-50 rounded-xl p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center text-green-600 shrink-0">
+                          <Book className="w-5 h-5" />
+                        </div>
+                        <div className="overflow-hidden">
+                          <p className="text-sm font-bold text-green-900 truncate">ไฟล์อัปโหลดสำเร็จแล้ว</p>
+                          <a href={formData.ebookFile} target="_blank" rel="noreferrer" className="text-xs text-green-700 hover:underline truncate block w-48 sm:w-auto">
+                            {formData.ebookFile.split('/').pop()}
+                          </a>
+                        </div>
+                      </div>
+                      <button 
+                        type="button" 
+                        onClick={() => {
+                          setFormData(prev => ({...prev, ebookFile: ''}));
+                          setEbookUploadProgress(null);
+                        }}
+                        className="text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors ml-2"
+                        title="ลบไฟล์"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div>

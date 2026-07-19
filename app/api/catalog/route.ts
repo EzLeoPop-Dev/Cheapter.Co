@@ -105,7 +105,22 @@ export async function GET(request: NextRequest) {
     const pageSize = parseLimit(searchParams.get("limit")) ?? 12;
     const requestedPage = parsePage(searchParams.get("page"));
 
-    const where: Prisma.BookWhereInput = {};
+    const where: Prisma.BookWhereInput = {
+      NOT: {
+        OR: [
+          { sampleData: { path: ["adminStatus"], equals: "draft" } },
+          { sampleData: { path: ["adminStatus"], equals: "discontinued" } },
+          {
+            AND: [
+              {
+                NOT: { sampleData: { path: ["adminStatus"], equals: "active" } },
+              },
+              { stock: { lte: 0 } },
+            ],
+          },
+        ],
+      },
+    };
 
     if (category) {
       where.category = {

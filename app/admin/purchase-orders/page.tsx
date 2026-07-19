@@ -1,21 +1,47 @@
 // @ts-nocheck
 "use client";
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
-import { useMockStore } from '../context/MockStoreContext';
 import { useAuth } from '../context/AuthContext';
 import { Search, Plus, FileText, CheckCircle, Clock, XCircle, AlertCircle, Eye } from 'lucide-react';
 import Link from 'next/link';
 
 export default function PurchaseOrdersPage() {
   const { t } = useLanguage();
-  const { pos, updatePO } = useMockStore();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [pos, setPos] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleStatusChange = (poId, newStatus) => {
-    updatePO(poId, { status: newStatus });
+  useEffect(() => {
+    fetchPOs();
+  }, []);
+
+  const fetchPOs = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/admin/purchase-orders');
+      const data = await res.json();
+      if (!data.error) setPos(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleStatusChange = async (poId: string, newStatus: string) => {
+    try {
+      await fetch(`/api/admin/purchase-orders/${poId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+      fetchPOs();
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const filteredPOs = useMemo(() => {
@@ -31,7 +57,7 @@ export default function PurchaseOrdersPage() {
     return result;
   }, [pos, activeTab, searchQuery]);
 
-  const renderStatus = (po) => {
+  const renderStatus = (po: any) => {
     if (user?.role === 'ADMIN') {
       return (
         <select
@@ -67,8 +93,8 @@ export default function PurchaseOrdersPage() {
     }
   };
 
-  const calculateTotal = (po) => {
-    return po.items.reduce((sum, item) => sum + (item.ordered * item.cost), 0);
+  const calculateTotal = (po: any) => {
+    return po.items.reduce((sum: number, item: any) => sum + (item.ordered * Number(item.unitCost)), 0);
   };
 
   return (
@@ -139,44 +165,48 @@ export default function PurchaseOrdersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {filteredPOs.map((po) => (
-                <tr key={po.id} className="hover:bg-gray-50/80 transition-colors group">
-                  <td className="py-4 px-6">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
-                        <FileText className="w-5 h-5 text-gray-400" />
+              {isLoading ? (
+                <tr><td colSpan={6} className="text-center py-12 text-gray-400">Loading...</td></tr>
+              ) : (
+                filteredPOs.map((po) => (
+                  <tr key={po.id} className="hover:bg-gray-50/80 transition-colors group">
+                    <td className="py-4 px-6">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
+                          <FileText className="w-5 h-5 text-gray-400" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-gray-900 font-mono">{po.id}</p>
+                          <p className="text-xs text-gray-500 font-medium">{po.items.length} รายการ</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-bold text-gray-900 font-mono">{po.id}</p>
-                        <p className="text-xs text-gray-500 font-medium">{po.items.length} รายการ</p>
+                    </td>
+                    <td className="py-4 px-6">
+                      <p className="font-bold text-gray-700">{po.supplier}</p>
+                    </td>
+                    <td className="py-4 px-6 text-center">
+                      <p className="text-sm font-medium text-gray-900">{new Date(po.createdAt).toLocaleDateString('th-TH')}</p>
+                      {po.expectedDate && <p className="text-[10px] text-gray-400 mt-0.5">รับ: {new Date(po.expectedDate).toLocaleDateString('th-TH')}</p>}
+                    </td>
+                    <td className="py-4 px-6 text-right font-bold text-gray-900 font-mono text-sm">
+                      ฿{calculateTotal(po).toLocaleString()}
+                    </td>
+                    <td className="py-4 px-6 text-center">
+                      {renderStatus(po)}
+                    </td>
+                    <td className="py-4 px-6 text-right">
+                      <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors border border-transparent hover:border-gray-200" title="View Details">
+                          <Eye className="w-4 h-4" />
+                        </button>
                       </div>
-                    </div>
-                  </td>
-                  <td className="py-4 px-6">
-                    <p className="font-bold text-gray-700">{po.supplier}</p>
-                  </td>
-                  <td className="py-4 px-6 text-center">
-                    <p className="text-sm font-medium text-gray-900">{po.created_at}</p>
-                    <p className="text-[10px] text-gray-400 mt-0.5">รับ: {po.expectedDate}</p>
-                  </td>
-                  <td className="py-4 px-6 text-right font-bold text-gray-900 font-mono text-sm">
-                    ฿{calculateTotal(po).toLocaleString()}
-                  </td>
-                  <td className="py-4 px-6 text-center">
-                    {renderStatus(po)}
-                  </td>
-                  <td className="py-4 px-6 text-right">
-                    <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors border border-transparent hover:border-gray-200" title="View Details">
-                        <Eye className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
-          {filteredPOs.length === 0 && (
+          {!isLoading && filteredPOs.length === 0 && (
             <div className="text-center py-16">
               <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-gray-100">
                 <FileText className="w-8 h-8 text-gray-300" />

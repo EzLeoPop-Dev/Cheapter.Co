@@ -12,6 +12,8 @@ type PatchBody = {
   publisherName?: string;
   categoryId?: number | string | null;
   status?: "draft" | "active" | "discontinued";
+  ebookFile?: string | null;
+  sampleLimit?: number | null;
 };
 
 function resolveAdminStatus(sampleData: unknown, stock: number): "draft" | "active" | "discontinued" {
@@ -68,20 +70,22 @@ export async function GET(
 
     return Response.json({
       book: {
-        id: book.id,
-        title: book.title,
-        author: book.author,
-        description: book.description,
-        price: Number(book.price),
-        image: book.image,
-        stock: book.stock,
-        stockStatus: book.stockStatus,
-        bookType: book.bookType,
-        status: resolveAdminStatus(book.sampleData, book.stock),
-        categoryId: book.category?.id ?? null,
-        categoryName: book.category?.name ?? null,
-        publisherName: book.publisher?.name ?? "",
-      },
+          id: book.id,
+          title: book.title,
+          author: book.author,
+          description: book.description,
+          price: Number(book.price),
+          image: book.image,
+          stock: book.stock,
+          stockStatus: book.stockStatus,
+          bookType: book.bookType,
+          ebookFile: book.ebookFile,
+          sampleLimit: book.sampleLimit,
+          status: resolveAdminStatus(book.sampleData, book.stock),
+          categoryId: book.category?.id ?? null,
+          categoryName: book.category?.name ?? null,
+          publisherName: book.publisher?.name ?? "",
+        },
     });
   } catch (error) {
     console.error("GET /api/admin/books/[id] failed", error);
@@ -112,6 +116,9 @@ export async function PATCH(
     const image = typeof body.image === "string" ? body.image.trim() : null;
     const price = Number(body.price);
     const publisherName = typeof body.publisherName === "string" ? body.publisherName.trim() : "";
+    
+    const ebookFile = typeof body.ebookFile === "string" ? body.ebookFile.trim() : undefined;
+    const sampleLimit = typeof body.sampleLimit === "number" ? body.sampleLimit : undefined;
 
     if (!title || !author || Number.isNaN(price) || price < 0) {
       return Response.json({ message: "Invalid book data" }, { status: 400 });
@@ -159,6 +166,8 @@ export async function PATCH(
         image,
         price,
         bookType,
+        ...(ebookFile !== undefined ? { ebookFile } : {}),
+        ...(sampleLimit !== undefined ? { sampleLimit } : {}),
         ...(status
           ? {
               sampleData: {
@@ -212,6 +221,8 @@ export async function PATCH(
         stock: updated.stock,
         stockStatus: updated.stockStatus,
         bookType: updated.bookType,
+        ebookFile: updated.ebookFile,
+        sampleLimit: updated.sampleLimit,
         status: resolveAdminStatus(updated.sampleData, updated.stock),
         categoryId: updated.category?.id ?? null,
         categoryName: updated.category?.name ?? null,
