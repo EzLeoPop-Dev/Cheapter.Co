@@ -20,13 +20,12 @@ type Book = {
   stock: number;
 };
 
-export function HomeContent({ books, bestSellers }: { books: Book[]; bestSellers: Book[] }) {
+export function HomeContent({ books, bestSellers, categories = [] }: { books: Book[]; bestSellers: Book[]; categories?: { id: number | string; name: string }[] }) {
   const { t } = useLanguage();
 
   return (
-    <div className="min-h-screen bg-[#faf8f4] flex flex-col font-sans text-stone-800 overflow-hidden">
+    <div className="min-h-screen bg-[#faf8f4] flex flex-col font-sans text-stone-800 overflow-x-clip">
       <Navbar />
-      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="w-full bg-[#e6dbcc] text-center py-2 text-xs font-semibold tracking-wider text-amber-900">{t('home.promoBanner')}</motion.div>
       <main className="flex-1 w-full max-w-7xl mx-auto px-8 py-16 lg:py-24 grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-8 items-center">
         <div className="flex flex-col gap-8 z-10">
           <motion.h1 initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.2 }} className="text-5xl md:text-6xl lg:text-[72px] leading-[1.1] font-bold text-stone-900 tracking-tight">{t('home.heroTitle1')}<br />{t('home.heroTitle2')} <span className="font-serif italic text-amber-800/90 font-medium">{t('home.heroTitle3')}</span></motion.h1>
@@ -39,7 +38,7 @@ export function HomeContent({ books, bestSellers }: { books: Book[]; bestSellers
         <HeroImage />
       </main>
       <DiscountMarquee />
-      <CategoryNav />
+      <CategoryNav categories={categories} />
       <RecommendedSection books={books} />
       <PromotionSection />
       <BestSellersSection books={bestSellers} />

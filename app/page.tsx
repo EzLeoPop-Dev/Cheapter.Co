@@ -38,9 +38,10 @@ export default async function Home() {
       ],
     };
 
-    const [books, bestSellers] = await Promise.all([
+    const [books, bestSellers, categories] = await Promise.all([
       prisma.book.findMany({ where: activeWhere as any, orderBy: { createdAt: 'desc' }, take: 10 }),
       prisma.book.findMany({ where: activeWhere as any, orderBy: [{ reviewCount: 'desc' }, { rating: 'desc' }], take: 10 }),
+      prisma.category.findMany({ orderBy: { name: 'asc' } }),
     ]);
 
     const formatBook = (book: typeof books[number]) => ({
@@ -54,7 +55,7 @@ export default async function Home() {
       stock: book.stock,
     });
 
-    return <HomeContent books={books.map(formatBook)} bestSellers={bestSellers.map(formatBook)} />;
+    return <HomeContent books={books.map(formatBook)} bestSellers={bestSellers.map(formatBook)} categories={categories} />;
   }
   const { createClient } = await import('@/src/lib/supabase/server');
   const supabaseClient = await createClient();
@@ -62,5 +63,5 @@ export default async function Home() {
   const safeBooksData = Array.isArray(booksData) ? booksData : [];
   const bestSellers = safeBooksData.slice().sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)).slice(0, 10);
 
-  return <HomeContent books={safeBooksData.slice(0, 10)} bestSellers={bestSellers} />;
+  return <HomeContent books={safeBooksData.slice(0, 10)} bestSellers={bestSellers} categories={[]} />;
 }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { 
   Search, 
   ShoppingCart, 
@@ -11,10 +11,12 @@ import {
   LogOut, 
   Settings, 
   LayoutDashboard, 
-  Loader2 
+  Loader2,
+  LayoutGrid
 } from "lucide-react";
 import { useLanguage } from "../context/LanguageContext";
 import { signOut, useSession } from "next-auth/react";
+import { CategoryWheelModal } from "./CategoryWheelModal";
 
 // --- Types สำหรับระบบ Search ---
 type SearchBook = {
@@ -30,6 +32,8 @@ type CatalogSearchResponse = {
 
 export function Navbar() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { lang, setLang, t } = useLanguage();
   
   // --- State สำหรับระบบ Search ---
@@ -45,6 +49,25 @@ export function Navbar() {
 
   // --- State สำหรับจำนวนสินค้าในตะกร้า ---
   const [cartCount, setCartCount] = useState(0);
+  
+  // --- State สำหรับติดตามการ Scroll ---
+  const [isScrolled, setIsScrolled] = useState(false);
+  
+  // --- State สำหรับ Category Wheel ---
+  const [isCategoryWheelOpen, setIsCategoryWheelOpen] = useState(false);
+  
+  // --- State สำหรับระบบ Search (Expandable) ---
+  const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 20);
+    };
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   // เช็คสิทธิ์ว่าเป็น Admin หรือ Staff
   const isAdminOrStaff = session?.user?.role === "ADMIN" || session?.user?.role === "STAFF";
@@ -155,7 +178,19 @@ export function Navbar() {
   };
 
   return (
-    <nav className="w-full flex items-center justify-between py-6 px-8 max-w-7xl mx-auto font-sans text-stone-800">
+    <header 
+      className={`w-full sticky z-50 transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] flex justify-center ${
+        isScrolled ? "top-0 px-0" : "top-4 px-4 sm:px-8"
+      }`}
+    >
+      <nav 
+        className={`w-full bg-[#faf8f4]/95 backdrop-blur-md transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+          isScrolled 
+            ? "max-w-full rounded-none border-b border-stone-200/50 shadow-md" 
+            : "max-w-[1600px] rounded-full border border-stone-200/60 shadow-sm"
+        }`}
+      >
+        <div className={`w-full flex items-center justify-between mx-auto font-sans text-stone-800 transition-all duration-500 max-w-[1600px] ${isScrolled ? "py-3 px-8 sm:px-12" : "py-3 px-10 sm:px-16"}`}>
       {/* โลโก้ */}
       <Link href="/" className="font-serif text-3xl font-semibold tracking-tight text-amber-900">
         Cheapter.Co
@@ -163,39 +198,89 @@ export function Navbar() {
       
       {/* เมนูตรงกลาง (รองรับแปลภาษา) */}
       <div className="hidden md:flex items-center gap-8 text-sm font-medium">
-        <Link href="/catalog" className="relative after:absolute after:-bottom-1 after:left-0 after:w-full after:h-0.5 after:bg-amber-900 text-amber-900">
+        <Link 
+          href="/" 
+          className={pathname === "/" ? "relative after:absolute after:-bottom-1 after:left-0 after:w-full after:h-0.5 after:bg-amber-900 text-amber-900" : "hover:text-amber-900 transition-colors text-stone-600"}
+        >
+          {lang === 'th' ? 'หน้าหลัก' : 'Home'}
+        </Link>
+
+        <Link 
+          href="/catalog" 
+          className={pathname?.startsWith("/catalog") && searchParams?.get("formats") !== "EBook" ? "relative after:absolute after:-bottom-1 after:left-0 after:w-full after:h-0.5 after:bg-amber-900 text-amber-900" : "hover:text-amber-900 transition-colors text-stone-600"}
+        >
           {t('nav.catalog')}
         </Link>
-        <Link href="/book-packs" className="hover:text-amber-900 transition-colors">
+        <Link 
+          href="/book-packs" 
+          className={pathname?.startsWith("/book-packs") ? "relative after:absolute after:-bottom-1 after:left-0 after:w-full after:h-0.5 after:bg-amber-900 text-amber-900" : "hover:text-amber-900 transition-colors text-stone-600"}
+        >
           {t('nav.bookPack')}
         </Link>
-        <Link href="/" className="hover:text-amber-900 transition-colors">
+        <Link 
+          href="/editorial" 
+          className={pathname?.startsWith("/editorial") ? "relative after:absolute after:-bottom-1 after:left-0 after:w-full after:h-0.5 after:bg-amber-900 text-amber-900" : "hover:text-amber-900 transition-colors text-stone-600"}
+        >
           {t('nav.editorial')}
         </Link>
-        <Link href="/catalog?formats=EBook" className="hover:text-amber-900 transition-colors">
+        <Link 
+          href="/catalog?formats=EBook" 
+          className={pathname === "/catalog" && searchParams?.get("formats") === "EBook" ? "relative after:absolute after:-bottom-1 after:left-0 after:w-full after:h-0.5 after:bg-amber-900 text-amber-900" : "hover:text-amber-900 transition-colors text-stone-600"}
+        >
           {t('nav.ebooks')}
         </Link>
       </div>
       
       <div className="flex items-center gap-6">
+        {/* ปุ่มหมวดหมู่ (Icon) */}
+        <button 
+          onClick={() => setIsCategoryWheelOpen(true)}
+          className="text-stone-400 hover:text-amber-900 transition-colors focus:outline-none flex-shrink-0"
+          aria-label="Categories"
+          title={lang === 'th' ? 'หมวดหมู่' : 'Categories'}
+        >
+          <LayoutGrid size={20} />
+        </button>
+
         {/* ช่องค้นหา */}
         <form
           onSubmit={handleSubmit}
-          className="hidden lg:flex items-center text-sm text-stone-500 bg-transparent border-b border-stone-300 pb-1 w-48 focus-within:border-amber-900 transition-colors relative"
+          className={`hidden lg:flex items-center text-sm text-stone-500 bg-transparent transition-all duration-300 relative ${
+            isSearchExpanded ? "border-b border-stone-300 pb-1 w-56 focus-within:border-amber-900" : "w-5 justify-end"
+          }`}
         >
           <input
+            ref={searchInputRef}
             type="text"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onFocus={() => setIsOpen(true)}
             onBlur={() => {
-              setTimeout(() => setIsOpen(false), 150);
+              setTimeout(() => {
+                setIsOpen(false);
+                if (!query.trim()) {
+                  setIsSearchExpanded(false);
+                }
+              }, 200);
             }}
             placeholder={t('nav.searchPh')}
-            className="bg-transparent outline-none w-full placeholder:text-stone-400 text-stone-800"
+            className={`bg-transparent outline-none placeholder:text-stone-400 text-stone-800 transition-all duration-300 ${
+              isSearchExpanded ? "w-full opacity-100" : "w-0 opacity-0"
+            }`}
           />
-          <button type="submit" aria-label="Search catalog" className="text-stone-400 hover:text-amber-900 transition-colors">
-            <Search size={16} />
+          <button 
+            type={isSearchExpanded && query.trim() ? "submit" : "button"} 
+            onClick={(e) => {
+              if (!isSearchExpanded) {
+                e.preventDefault();
+                setIsSearchExpanded(true);
+                setTimeout(() => searchInputRef.current?.focus(), 50);
+              }
+            }}
+            aria-label="Search catalog" 
+            className="text-stone-400 hover:text-amber-900 transition-colors flex-shrink-0 cursor-pointer block"
+          >
+            <Search size={20} />
           </button>
 
           {showDropdown && (
@@ -318,6 +403,14 @@ export function Navbar() {
           </button>
         </div>
       </div>
-    </nav>
+      </div>
+      </nav>
+
+      {/* Category Wheel Modal */}
+      <CategoryWheelModal 
+        isOpen={isCategoryWheelOpen} 
+        onClose={() => setIsCategoryWheelOpen(false)} 
+      />
+    </header>
   );
 }
