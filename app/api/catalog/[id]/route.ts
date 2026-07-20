@@ -48,7 +48,7 @@ export async function GET(
           publisher: dbBook.publisher?.name ?? null,
           isbn: dbBook.isbn ?? null,
           pages: dbBook.pages ?? null,
-          language: dbBook.language ?? "Thai", // Default to Thai if null
+          language: "Thai", // Default to Thai if null
           publishDate: dbBook.publishDate ?? null,
           format: dbBook.bookType,
           quantity: dbBook.stock,

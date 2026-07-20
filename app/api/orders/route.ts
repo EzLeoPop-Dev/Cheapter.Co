@@ -92,33 +92,44 @@ export async function POST(req: Request) {
       where: { code: couponCode },
     });
 
-    if (promotion && promotion.status === "Active") {
-      const isExpired = promotion.endDate && new Date(promotion.endDate) < new Date();
-      const meetMinPurchase = subtotal >= Number(promotion.minPurchase);
+    if (!promotion) {
+      return NextResponse.json({ error: "ไม่พบรหัสคูปองนี้" }, { status: 400 });
+    }
 
-      if (!isExpired && meetMinPurchase) {
-        // Check per-user usage: 1 coupon per user ID
-        const alreadyUsed = await prisma.userCoupon.findFirst({
-          where: {
-            userId: session.user.id,
-            promotionId: promotion.id,
-            isUsed: true,
-          },
-        });
+    if (promotion.status !== "Active") {
+      return NextResponse.json({ error: "คูปองนี้หมดอายุหรือถูกระงับแล้ว" }, { status: 400 });
+    }
 
-        if (alreadyUsed) {
-          return NextResponse.json({ error: "คุณได้ใช้คูปองนี้ไปแล้ว (1 สิทธิ์ต่อ 1 บัญชี)" }, { status: 400 });
-        }
+    const isExpired = promotion.endDate && new Date(promotion.endDate) < new Date();
+    if (isExpired) {
+      return NextResponse.json({ error: "คูปองนี้หมดอายุแล้ว" }, { status: 400 });
+    }
 
-        promotionId = promotion.id;
-        if (promotion.discountType === "percent") {
-          discountAmount = Number((subtotal * (Number(promotion.value) / 100)).toFixed(2));
-        } else if (promotion.discountType === "fixed") {
-          discountAmount = Number(promotion.value);
-        } else if (promotion.discountType === "freeship") {
-          isFreeShipping = true;
-        }
-      }
+    const meetMinPurchase = subtotal >= Number(promotion.minPurchase);
+    if (!meetMinPurchase) {
+      return NextResponse.json({ error: `ยอดซื้อขั้นต่ำไม่ถึง ฿${Number(promotion.minPurchase)}` }, { status: 400 });
+    }
+
+    // Check per-user usage: 1 coupon per user ID
+    const alreadyUsed = await prisma.userCoupon.findFirst({
+      where: {
+        userId: session.user.id,
+        promotionId: promotion.id,
+        isUsed: true,
+      },
+    });
+
+    if (alreadyUsed) {
+      return NextResponse.json({ error: "คุณได้ใช้คูปองนี้ไปแล้ว (1 สิทธิ์ต่อ 1 บัญชี)" }, { status: 400 });
+    }
+
+    promotionId = promotion.id;
+    if (promotion.discountType === "percent") {
+      discountAmount = Number((subtotal * (Number(promotion.value) / 100)).toFixed(2));
+    } else if (promotion.discountType === "fixed") {
+      discountAmount = Number(promotion.value);
+    } else if (promotion.discountType === "freeship") {
+      isFreeShipping = true;
     }
   }
 

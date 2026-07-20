@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useEffect } from "react";
 import { Navbar } from "../../components/Navbar";
-import { Lock, Truck, CreditCard, ShieldCheck, RefreshCcw, QrCode, HandCoins } from "lucide-react";
+import { Lock, Truck, CreditCard, ShieldCheck, RefreshCcw, QrCode, HandCoins, Ticket, Percent, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 type CheckoutItem = {
@@ -44,6 +44,26 @@ export default function CheckoutPage() {
   const [couponError, setCouponError] = useState("");
   const [couponSuccess, setCouponSuccess] = useState("");
 
+  // Modal Coupon States
+  const [showCouponModal, setShowCouponModal] = useState(false);
+  const [availableCoupons, setAvailableCoupons] = useState<any[]>([]);
+  const [tempSelectedCoupon, setTempSelectedCoupon] = useState<any>(null);
+  const [modalCouponCode, setModalCouponCode] = useState("");
+  const [modalCouponError, setModalCouponError] = useState("");
+  const [modalCouponSuccess, setModalCouponSuccess] = useState("");
+
+  const loadAvailableCoupons = async () => {
+    try {
+      const res = await fetch("/api/coupons");
+      if (res.ok) {
+        const data = await res.json();
+        setAvailableCoupons(data.promotions || []);
+      }
+    } catch (err) {
+      console.error("Failed to load coupons", err);
+    }
+  };
+
   useEffect(() => {
     async function loadCheckout() {
       const [profileResponse, cartResponse] = await Promise.all([
@@ -69,6 +89,7 @@ export default function CheckoutPage() {
     }
 
     loadCheckout();
+    loadAvailableCoupons();
   }, []);
 
   const handleApplyCoupon = async () => {
@@ -104,6 +125,61 @@ export default function CheckoutPage() {
     } catch (err) {
       setCouponError("เกิดข้อผิดพลาดในการตรวจสอบคูปอง");
       setAppliedCoupon(null);
+    }
+  };
+
+  const handleSelectCouponConfirm = () => {
+    if (tempSelectedCoupon) {
+      const currentSubtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      if (currentSubtotal < Number(tempSelectedCoupon.minPurchase)) {
+        alert(`ยอดซื้อขั้นต่ำไม่ถึง ฿${Number(tempSelectedCoupon.minPurchase)}`);
+        return;
+      }
+      setAppliedCoupon(tempSelectedCoupon);
+      setCouponCode(tempSelectedCoupon.code);
+      setCouponSuccess(`ประยุกต์ใช้คูปอง "${tempSelectedCoupon.name}" สำเร็จ!`);
+      setCouponError("");
+    } else {
+      setAppliedCoupon(null);
+      setCouponCode("");
+      setCouponSuccess("");
+      setCouponError("");
+    }
+    setShowCouponModal(false);
+  };
+
+  const handleModalApplyCoupon = async () => {
+    setModalCouponError("");
+    setModalCouponSuccess("");
+    if (!modalCouponCode.trim()) return;
+
+    try {
+      const res = await fetch(`/api/coupons?code=${encodeURIComponent(modalCouponCode.trim())}`);
+      if (res.status === 444) {
+        setModalCouponError("ไม่พบรหัสคูปองนี้");
+        return;
+      }
+      if (!res.ok) {
+        const data = await res.json();
+        setModalCouponError(data.message || "คูปองไม่สามารถใช้งานได้");
+        return;
+      }
+
+      const coupon = await res.json();
+      const currentSubtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+      if (currentSubtotal < Number(coupon.minPurchase)) {
+        setModalCouponError(`ยอดซื้อขั้นต่ำไม่ถึง ฿${Number(coupon.minPurchase)}`);
+        return;
+      }
+
+      setTempSelectedCoupon(coupon);
+      if (!availableCoupons.some(c => c.id === coupon.id)) {
+        setAvailableCoupons([coupon, ...availableCoupons]);
+      }
+      setModalCouponSuccess(`เลือกคูปอง "${coupon.name}" สำเร็จ!`);
+    } catch (err) {
+      setModalCouponError("เกิดข้อผิดพลาดในการตรวจสอบคูปอง");
     }
   };
 
@@ -162,6 +238,9 @@ export default function CheckoutPage() {
           localStorage.setItem(LATEST_ORDER_KEY, JSON.stringify(data.order));
           localStorage.removeItem(GUEST_CART_KEY);
           router.push("/tracking");
+        } else {
+          const data = await guestResponse.json();
+          alert(data.error || "เกิดข้อผิดพลาดในการสั่งซื้อ");
         }
         return;
       }
@@ -171,6 +250,9 @@ export default function CheckoutPage() {
         localStorage.setItem(LATEST_ORDER_KEY, JSON.stringify(data.order));
         localStorage.removeItem(GUEST_CART_KEY);
         router.push("/tracking");
+      } else {
+        const data = await response.json();
+        alert(data.error || "เกิดข้อผิดพลาดในการสั่งซื้อ");
       }
     } finally {
       setIsSubmitting(false);
@@ -452,22 +534,59 @@ export default function CheckoutPage() {
 
             {/* Coupon Code Input Field */}
             <div className="border-t border-stone-200 pt-4 flex flex-col gap-2">
-              <span className="text-xs font-bold text-stone-600">Promo Code</span>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={couponCode}
-                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                  placeholder="กรอกโค้ดส่วนลด"
-                  className="flex-1 border border-stone-300 rounded px-3 py-2 text-xs focus:outline-none focus:border-[#8b5a45] uppercase font-mono bg-white"
-                />
-                <button
-                  onClick={handleApplyCoupon}
-                  className="bg-stone-850 hover:bg-stone-900 border border-stone-300 text-stone-800 hover:text-stone-900 font-bold px-4 py-2 rounded text-xs transition-colors bg-[#faf8f4]"
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-stone-600">Cheapter Voucher</span>
+                <button 
+                  onClick={() => {
+                    setTempSelectedCoupon(appliedCoupon);
+                    setModalCouponCode("");
+                    setModalCouponError("");
+                    setModalCouponSuccess("");
+                    setShowCouponModal(true);
+                  }}
+                  className="text-xs text-[#8b5a45] hover:text-[#724a38] font-bold flex items-center gap-0.5"
                 >
-                  Apply
+                  เลือกโค้ดส่วนลด <ChevronRight size={14} />
                 </button>
               </div>
+              
+              {appliedCoupon ? (
+                <div className="flex items-center justify-between bg-[#fbf9f6] border border-[#e6dbcc] rounded p-2.5">
+                  <div className="flex items-center gap-2">
+                    <Ticket className="text-[#8b5a45]" size={16} />
+                    <span className="text-xs font-bold font-mono text-[#8b5a45] bg-[#fdfbf9] px-1.5 py-0.5 rounded border border-[#e6dbcc]">{appliedCoupon.code}</span>
+                    <span className="text-xs text-stone-600 font-medium">{appliedCoupon.name}</span>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      setAppliedCoupon(null);
+                      setCouponCode("");
+                      setCouponSuccess("");
+                      setCouponError("");
+                    }}
+                    className="text-stone-400 hover:text-stone-600 text-xs font-bold"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <div 
+                  onClick={() => {
+                    setTempSelectedCoupon(null);
+                    setModalCouponCode("");
+                    setModalCouponError("");
+                    setModalCouponSuccess("");
+                    setShowCouponModal(true);
+                  }}
+                  className="border border-dashed border-stone-300 rounded p-3 flex items-center justify-between cursor-pointer hover:bg-stone-50 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Ticket className="text-stone-400" size={16} />
+                    <span className="text-xs text-stone-500 font-medium">กดเลือกหรือกรอกโค้ดส่วนลด</span>
+                  </div>
+                  <ChevronRight size={14} className="text-stone-400" />
+                </div>
+              )}
               {couponError && <span className="text-xs text-red-500 font-medium">{couponError}</span>}
               {couponSuccess && <span className="text-xs text-green-600 font-medium">{couponSuccess}</span>}
             </div>
@@ -499,6 +618,170 @@ export default function CheckoutPage() {
         </div>
 
       </main>
+
+      {/* Shopee-like Coupon Selection Modal */}
+      {showCouponModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowCouponModal(false)}>
+          <div className="bg-[#fdfbf9] rounded-[2rem] border border-white/80 w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div className="p-5 border-b border-stone-200 flex justify-between items-center bg-white">
+              <h3 className="text-lg font-bold text-stone-900 flex items-center gap-2">
+                🎟️ เลือกโค้ดส่วนลดของ Cheapter
+              </h3>
+              <button onClick={() => setShowCouponModal(false)} className="text-stone-400 hover:text-stone-600">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-5 overflow-y-auto flex-1 space-y-4 bg-stone-50">
+              {/* Add Coupon Code Area */}
+              <div className="bg-white p-4 rounded-2xl border border-stone-200 flex flex-col gap-2">
+                <span className="text-xs font-bold text-stone-700">เพิ่มโค้ด</span>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={modalCouponCode}
+                    onChange={(e) => setModalCouponCode(e.target.value.toUpperCase())}
+                    placeholder="เพิ่มโค้ดส่วนลดของ Cheapter"
+                    className="flex-1 border border-stone-300 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-[#8b5a45] uppercase font-mono bg-white"
+                  />
+                  <button
+                    onClick={handleModalApplyCoupon}
+                    className="bg-[#8b5a45] hover:bg-[#724a38] text-white font-bold px-5 py-2 rounded-xl text-xs transition-colors"
+                  >
+                    ใช้โค้ด
+                  </button>
+                </div>
+                {modalCouponError && <span className="text-xs text-red-500 font-medium">{modalCouponError}</span>}
+                {modalCouponSuccess && <span className="text-xs text-green-600 font-medium">{modalCouponSuccess}</span>}
+              </div>
+
+              {/* Free Shipping Coupons Group */}
+              <div className="space-y-2">
+                <span className="text-xs font-bold text-stone-500 block px-1">โค้ดส่งฟรี</span>
+                <div className="space-y-3">
+                  {availableCoupons.filter(c => c.discountType === 'freeship').length === 0 ? (
+                    <div className="text-center py-6 text-xs text-stone-400 bg-white rounded-2xl border border-stone-200">ไม่มีโค้ดส่งฟรีขณะนี้</div>
+                  ) : (
+                    availableCoupons.filter(c => c.discountType === 'freeship').map((coupon) => {
+                      const isSelectable = subtotal >= Number(coupon.minPurchase);
+                      const isChecked = tempSelectedCoupon?.id === coupon.id;
+                      return (
+                        <div 
+                          key={coupon.id} 
+                          onClick={() => isSelectable && setTempSelectedCoupon(coupon)}
+                          className={`flex items-stretch rounded-2xl border overflow-hidden bg-white shadow-sm cursor-pointer transition-all ${isChecked ? 'border-[#8b5a45]' : 'border-stone-200'} ${!isSelectable ? 'opacity-60' : 'hover:border-stone-300'}`}
+                        >
+                          {/* Badge Left */}
+                          <div className="w-24 bg-[#e8f5e9] flex flex-col items-center justify-center border-r border-dashed border-stone-200 p-3">
+                            <Truck className="text-[#2e7d32] mb-1" size={24} />
+                            <span className="text-[10px] font-bold text-[#2e7d32] uppercase">ส่งฟรี</span>
+                          </div>
+                          {/* Content Middle */}
+                          <div className="flex-1 p-4 flex flex-col justify-center">
+                            <h4 className="text-sm font-bold text-stone-800">{coupon.name}</h4>
+                            <p className="text-[11px] text-[#2e7d32] font-semibold mt-0.5">โค้ดส่งฟรี</p>
+                            <p className="text-xs text-stone-500 mt-1">ขั้นต่ำ ฿{Number(coupon.minPurchase)}</p>
+                            <p className="text-[10px] text-stone-400 mt-0.5">ใช้ได้ถึง: {coupon.endDate ? new Date(coupon.endDate).toLocaleDateString('th-TH') : 'ไม่มีกำหนด'}</p>
+                            {!isSelectable && (
+                              <p className="text-[10px] text-red-500 font-medium mt-1">ยอดซื้อขั้นต่ำไม่ถึง ฿{Number(coupon.minPurchase)}</p>
+                            )}
+                          </div>
+                          {/* Radio Check Right */}
+                          <div className="flex items-center justify-center px-4">
+                            <input 
+                              type="radio" 
+                              name="selectedCoupon"
+                              checked={isChecked}
+                              disabled={!isSelectable}
+                              onChange={() => {}} 
+                              className="accent-[#8b5a45] w-4 h-4 cursor-pointer"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Discount Coupons Group */}
+              <div className="space-y-2">
+                <span className="text-xs font-bold text-stone-500 block px-1">โค้ดส่วนลด</span>
+                <div className="space-y-3">
+                  {availableCoupons.filter(c => c.discountType !== 'freeship').length === 0 ? (
+                    <div className="text-center py-6 text-xs text-stone-400 bg-white rounded-2xl border border-stone-200">ไม่มีโค้ดส่วนลดขณะนี้</div>
+                  ) : (
+                    availableCoupons.filter(c => c.discountType !== 'freeship').map((coupon) => {
+                      const isSelectable = subtotal >= Number(coupon.minPurchase);
+                      const isChecked = tempSelectedCoupon?.id === coupon.id;
+                      return (
+                        <div 
+                          key={coupon.id} 
+                          onClick={() => isSelectable && setTempSelectedCoupon(coupon)}
+                          className={`flex items-stretch rounded-2xl border overflow-hidden bg-white shadow-sm cursor-pointer transition-all ${isChecked ? 'border-[#8b5a45]' : 'border-stone-200'} ${!isSelectable ? 'opacity-60' : 'hover:border-stone-300'}`}
+                        >
+                          {/* Badge Left */}
+                          <div className="w-24 bg-[#fff3e0] flex flex-col items-center justify-center border-r border-dashed border-stone-200 p-3">
+                            <Percent className="text-[#e65100] mb-1" size={24} />
+                            <span className="text-[10px] font-bold text-[#e65100] uppercase">ส่วนลด</span>
+                          </div>
+                          {/* Content Middle */}
+                          <div className="flex-1 p-4 flex flex-col justify-center">
+                            <h4 className="text-sm font-bold text-stone-800">{coupon.name}</h4>
+                            <p className="text-[11px] text-[#e65100] font-semibold mt-0.5">
+                              {coupon.discountType === 'percent' ? `ส่วนลด ${Number(coupon.value)}%` : `ส่วนลด ฿${Number(coupon.value)}`}
+                            </p>
+                            <p className="text-xs text-stone-500 mt-1">ขั้นต่ำ ฿{Number(coupon.minPurchase)}</p>
+                            <p className="text-[10px] text-stone-400 mt-0.5">ใช้ได้ถึง: {coupon.endDate ? new Date(coupon.endDate).toLocaleDateString('th-TH') : 'ไม่มีกำหนด'}</p>
+                            {!isSelectable && (
+                              <p className="text-[10px] text-red-500 font-medium mt-1">ยอดซื้อขั้นต่ำไม่ถึง ฿{Number(coupon.minPurchase)}</p>
+                            )}
+                          </div>
+                          {/* Radio Check Right */}
+                          <div className="flex items-center justify-center px-4">
+                            <input 
+                              type="radio" 
+                              name="selectedCoupon"
+                              checked={isChecked}
+                              disabled={!isSelectable}
+                              onChange={() => {}} 
+                              className="accent-[#8b5a45] w-4 h-4 cursor-pointer"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-stone-200 bg-white flex justify-end gap-3">
+              <button 
+                onClick={() => {
+                  setTempSelectedCoupon(null);
+                  setShowCouponModal(false);
+                }} 
+                className="px-6 py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl font-bold transition-colors text-xs"
+              >
+                ยกเลิก
+              </button>
+              <button 
+                onClick={handleSelectCouponConfirm}
+                className="px-6 py-2.5 bg-[#d32f2f] hover:bg-[#b71c1c] text-white rounded-xl font-bold transition-colors text-xs"
+              >
+                ตกลง
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

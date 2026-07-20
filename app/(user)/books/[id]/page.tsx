@@ -157,12 +157,13 @@ export default function BookDetailPage() {
   useEffect(() => {
     if (!apiBook) return;
 
+    const bookId = apiBook.id;
     const controller = new AbortController();
     
     async function loadReviews() {
       setIsLoadingReviews(true);
       try {
-        const url = `/api/catalog/${apiBook.id}/reviews${selectedRating ? `?rating=${selectedRating}` : ''}`;
+        const url = `/api/catalog/${bookId}/reviews${selectedRating ? `?rating=${selectedRating}` : ''}`;
         const res = await fetch(url, { signal: controller.signal });
         if (res.ok) {
           const data = await res.json();
@@ -389,7 +390,8 @@ export default function BookDetailPage() {
                 <button
                   onClick={() => {
                     let url = BOOK.ebookFile;
-                    if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+                    if (!url) return;
+                    if (!url.startsWith('http://') && !url.startsWith('https://')) {
                       url = 'https://' + url;
                     }
                     window.open(url, '_blank', 'noopener,noreferrer');

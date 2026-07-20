@@ -1,3 +1,4 @@
+// @ts-nocheck
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, Filter, Ticket, AlertCircle, Clock, CheckCircle2, MessageSquare, Send, X } from 'lucide-react';

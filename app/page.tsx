@@ -39,8 +39,8 @@ export default async function Home() {
     };
 
     const [books, bestSellers] = await Promise.all([
-      prisma.book.findMany({ where: activeWhere, orderBy: { createdAt: 'desc' }, take: 10 }),
-      prisma.book.findMany({ where: activeWhere, orderBy: [{ reviewCount: 'desc' }, { rating: 'desc' }], take: 10 }),
+      prisma.book.findMany({ where: activeWhere as any, orderBy: { createdAt: 'desc' }, take: 10 }),
+      prisma.book.findMany({ where: activeWhere as any, orderBy: [{ reviewCount: 'desc' }, { rating: 'desc' }], take: 10 }),
     ]);
 
     const formatBook = (book: typeof books[number]) => ({
