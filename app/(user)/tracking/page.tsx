@@ -28,7 +28,7 @@ export default function TrackingPage() {
   const [order, setOrder] = useState<TrackingOrder | null>(null);
 
   useEffect(() => {
-    fetch("/api/orders/latest", { cache: "no-store" })
+    fetch("/api/orders/lastest", { cache: "no-store" })
       .then((res) => res.json())
       .then(async (data) => {
         if (data.order) {
