@@ -15,41 +15,14 @@ export default function AdminOrdersPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setTimeout(() => {
-      setOrders([
-        {
-          id: 'ORD-001', customer: 'สมชาย รักการอ่าน', customerPhone: '0891234567', date: '14/07/2026', amount: 450, status: 'รอชำระเงิน',
-          address: '123 ถ.สุขุมวิท แขวงคลองเตย เขตคลองเตย กทม. 10110', shippingMethod: 'EMS',
-          items: [{ name: 'แฮร์รี่ พอตเตอร์ เล่ม 1', price: 395, qty: 1 }],
-          subtotal: 395, shippingFee: 55, discount: 0, promo: '-',
-          paymentMethod: 'โอนเงินผ่านธนาคาร', paymentTime: '-'
-        },
-        {
-          id: 'ORD-002', customer: 'วิภาดา ใจดี', customerPhone: '0812345678', date: '14/07/2026', amount: 890, status: 'ตรวจสอบชำระเงิน',
-          address: '45/6 หมู่ 2 ต.บางรัก อ.เมือง จ.เชียงใหม่ 50000', shippingMethod: 'Kerry Express',
-          items: [{ name: 'ปรมาจารย์ลัทธิมาร เล่ม 1', price: 450, qty: 1 }, { name: 'ปรมาจารย์ลัทธิมาร เล่ม 2', price: 450, qty: 1 }],
-          subtotal: 900, shippingFee: 40, discount: 50, promo: 'FLASH50',
-          paymentMethod: 'โอนเงินผ่านธนาคาร', paymentTime: '14/07/2026 10:15',
-          slipUrl: 'https://placehold.co/400x600/f3f4f6/111827?text=Payment+Slip'
-        },
-        {
-          id: 'ORD-003', customer: 'ณเดชน์ สุดหล่อ', customerPhone: '0898765432', date: '13/07/2026', amount: 1200, status: 'รอจัดส่ง',
-          address: '88 คอนโดหรู ถ.สาทร แขวงยานนาวา เขตสาทร กทม. 10120', shippingMethod: 'Kerry Express',
-          items: [{ name: 'Boxset จูจูทสึ ไคเซ็น', price: 1200, qty: 1 }],
-          subtotal: 1200, shippingFee: 0, discount: 0, promo: 'FREESHIP',
-          paymentMethod: 'บัตรเครดิต', paymentTime: '13/07/2026 15:30'
-        },
-        {
-          id: 'ORD-004', customer: 'ญาญ่า น่ารัก', customerPhone: '0854321098', date: '12/07/2026', amount: 350, status: 'จัดส่งแล้ว',
-          address: '99/9 ถ.นิมมานเหมินทร์ ต.สุเทพ อ.เมือง จ.เชียงใหม่ 50200', shippingMethod: 'EMS',
-          items: [{ name: 'คิดแบบยิว', price: 300, qty: 1 }],
-          subtotal: 300, shippingFee: 50, discount: 0, promo: '-',
-          paymentMethod: 'โอนเงินผ่านธนาคาร', paymentTime: '12/07/2026 09:45',
-          slipUrl: 'https://placehold.co/400x600/f3f4f6/111827?text=Payment+Slip'
-        }
-      ]);
-      setIsLoading(false);
-    }, 400);
+    setIsLoading(true);
+    fetch('/api/admin/orders')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.orders) setOrders(data.orders);
+      })
+      .catch((err) => console.error('Failed to fetch orders:', err))
+      .finally(() => setIsLoading(false));
   }, []);
 
   React.useEffect(() => {
@@ -66,8 +39,22 @@ export default function AdminOrdersPage() {
     return () => window.removeEventListener('afterprint', handleAfterPrint);
   }, []);
 
-  const updateStatus = (id, newStatus) => {
-    setOrders((currentOrders) => currentOrders.map((o) => (o.id === id ? { ...o, status: newStatus } : o)));
+  const updateStatus = async (id, newStatus, trackingNumber?: string) => {
+    try {
+      const res = await fetch('/api/admin/orders', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: newStatus, trackingNumber }),
+      });
+      const data = await res.json();
+      if (data.order) {
+        setOrders((currentOrders) =>
+          currentOrders.map((o) => (o.id === id ? data.order : o))
+        );
+      }
+    } catch (err) {
+      console.error('Failed to update status:', err);
+    }
   };
 
   const getStatusColor = (status) => {
@@ -353,9 +340,8 @@ export default function AdminOrdersPage() {
                   {t('order.detail.cancel')}
                 </button>
                 <button 
-                  onClick={() => {
-                    updateStatus(selectedOrder.id, 'จัดส่งแล้ว');
-                    setOrders(current => current.map(o => o.id === selectedOrder.id ? {...o, trackingNumber: trackingInput} : o));
+                  onClick={async () => {
+                    await updateStatus(selectedOrder.id, 'จัดส่งแล้ว', trackingInput);
                     setSelectedOrder(null);
                   }} 
                   className="px-6 py-2.5 bg-gray-900 hover:bg-gray-800 text-white rounded-xl font-bold transition-colors text-sm shadow-md disabled:opacity-50 flex items-center gap-2"

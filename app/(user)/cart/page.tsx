@@ -2,54 +2,96 @@
 
 import { Navbar } from "../../components/Navbar";
 import { Check, Minus, Plus } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
-// Mock Data matching the screenshot
-const INITIAL_CART = [
-  {
-    id: "1",
-    title: "The Silent Forest",
-    author: "Haruki Murakami",
-    price: 450.00,
-    quantity: 1,
-    imageUrl: "https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=400&auto=format&fit=crop",
-  },
-  {
-    id: "2",
-    title: "Echoes of Kyoto",
-    author: "Yasunari Kawabata",
-    price: 380.00,
-    quantity: 1,
-    imageUrl: "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?q=80&w=400&auto=format&fit=crop",
-  },
-  {
-    id: "3",
-    title: "Whispers in the Bamboo",
-    author: "Banana Yoshimoto",
-    price: 420.00,
-    quantity: 1,
-    imageUrl: "https://images.unsplash.com/photo-1629196914234-a69077ee8478?q=80&w=400&auto=format&fit=crop",
-  }
-];
+type CartItem = {
+  id: number;
+  bookId?: number;
+  title: string;
+  author: string;
+  price: number;
+  quantity: number;
+  imageUrl: string | null;
+};
+
+const GUEST_CART_KEY = "cheapterCart";
 
 export default function CartPage() {
-  const [cartItems, setCartItems] = useState(INITIAL_CART);
+  const router = useRouter();
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const updateQuantity = (id: string, delta: number) => {
+  const loadGuestCart = () => {
+    const rawCart = localStorage.getItem(GUEST_CART_KEY);
+    const items = rawCart ? JSON.parse(rawCart) : [];
+    setCartItems(items);
+    setLoading(false);
+  };
+
+  const saveGuestCart = (items: CartItem[]) => {
+    localStorage.setItem(GUEST_CART_KEY, JSON.stringify(items));
+  };
+
+  const loadCart = async () => {
+    const response = await fetch("/api/cart", {
+      cache: "no-store",
+      credentials: "include",
+    });
+    if (response.status === 401) {
+      loadGuestCart();
+      return;
+    }
+    const data = await response.json();
+    setCartItems(data.items || []);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadCart().catch(() => setLoading(false));
+  }, []);
+
+  const updateQuantity = async (id: number, delta: number) => {
+    const item = cartItems.find((cartItem) => cartItem.id === id);
+    if (!item) return;
+    const nextQuantity = Math.max(1, item.quantity + delta);
     setCartItems(items =>
       items.map(item => {
         if (item.id === id) {
-          const newQuantity = Math.max(1, item.quantity + delta);
-          return { ...item, quantity: newQuantity };
+          return { ...item, quantity: nextQuantity };
         }
         return item;
       })
     );
+    const response = await fetch("/api/cart", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ itemId: id, quantity: nextQuantity }),
+    });
+    if (response.status === 401) {
+      const nextItems = cartItems.map((cartItem) => cartItem.id === id ? { ...cartItem, quantity: nextQuantity } : cartItem);
+      saveGuestCart(nextItems);
+      return;
+    }
+    const data = await response.json();
+    setCartItems(data.items || []);
   };
 
-  const removeItem = (id: string) => {
-    setCartItems(items => items.filter(item => item.id !== id));
+  const removeItem = async (id: number) => {
+    const nextItems = cartItems.filter(item => item.id !== id);
+    setCartItems(nextItems);
+    const response = await fetch(`/api/cart?itemId=${id}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    if (response.status === 401) {
+      saveGuestCart(nextItems);
+      return;
+    }
+    const data = await response.json();
+    setCartItems(data.items || []);
   };
 
   const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -66,7 +108,11 @@ export default function CartPage() {
 
           {/* Left Column: Cart Items */}
           <div className="flex-1 w-full flex flex-col gap-4">
-            {cartItems.length === 0 ? (
+            {loading ? (
+              <div className="bg-white rounded-xl p-12 text-center shadow-sm border border-stone-100">
+                <p className="text-stone-500">Loading your reading list...</p>
+              </div>
+            ) : cartItems.length === 0 ? (
               <div className="bg-white rounded-xl p-12 text-center shadow-sm border border-stone-100">
                 <p className="text-stone-500 mb-4">Your reading list is empty.</p>
                 <Link href="/catalog" className="text-[#b46b45] font-bold hover:underline">
@@ -78,7 +124,7 @@ export default function CartPage() {
                 <div key={item.id} className="bg-white rounded-xl p-5 shadow-sm border border-stone-100 flex gap-6 relative">
                   {/* Book Cover */}
                   <div className="w-[80px] shrink-0 aspect-[2/3] bg-stone-100 rounded-sm overflow-hidden relative shadow-sm">
-                    <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
+                    <img src={item.imageUrl || "https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=400&auto=format&fit=crop"} alt={item.title} className="w-full h-full object-cover" />
                     <div className="absolute left-0 top-0 bottom-0 w-[8%] bg-gradient-to-r from-black/40 to-transparent"></div>
                   </div>
 
@@ -163,7 +209,7 @@ export default function CartPage() {
                 </span>
               </div>
 
-              <button className="w-full bg-[#8b5a45] hover:bg-[#724a38] text-white py-3.5 rounded-md font-bold text-sm transition-colors shadow-sm">
+              <button onClick={() => router.push("/checkout")} className="w-full bg-[#8b5a45] hover:bg-[#724a38] text-white py-3.5 rounded-md font-bold text-sm transition-colors shadow-sm">
                 Proceed to Checkout
               </button>
             </div>

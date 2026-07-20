@@ -2,7 +2,7 @@
 
 import { Navbar } from "@/app/components/Navbar";
 import { ShoppingCart, Heart, ArrowLeft, Star, ChevronDown, Check, ChevronLeft, ChevronRight, Quote } from "lucide-react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState, useMemo, useEffect } from "react";
 import {
@@ -69,8 +69,11 @@ const MOCK_REVIEWS = [
   }
 ];
 
+const GUEST_CART_KEY = "cheapterCart";
+
 export default function BookDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const [isReadMore, setIsReadMore] = useState(false);
   const [isQuoteExpanded, setIsQuoteExpanded] = useState(false);
   const [apiBook, setApiBook] = useState<null | {
@@ -99,6 +102,7 @@ export default function BookDetailPage() {
   const [reviewStats, setReviewStats] = useState<ReviewStats | null>(null);
   const [selectedRating, setSelectedRating] = useState<number | null>(null);
   const [isLoadingReviews, setIsLoadingReviews] = useState(true);
+  const [addingToCart, setAddingToCart] = useState(false);
 
   useEffect(() => {
     const bookId = Array.isArray(params.id) ? params.id[0] : params.id;
@@ -279,6 +283,49 @@ export default function BookDetailPage() {
     setIsWishlisted(result.added);
   };
 
+  const handleAddToCart = async () => {
+    if (!apiBook) return;
+
+    try {
+      setAddingToCart(true);
+      const response = await fetch("/api/cart", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ bookId: apiBook.id, quantity: 1 }),
+      });
+
+      if (response.status === 401) {
+        const rawCart = localStorage.getItem(GUEST_CART_KEY);
+        const cart = rawCart ? JSON.parse(rawCart) : [];
+        const existing = cart.find((item: any) => item.bookId === apiBook.id);
+        const nextCart = existing
+          ? cart.map((item: any) => item.bookId === apiBook.id ? { ...item, quantity: item.quantity + 1 } : item)
+          : [
+              ...cart,
+              {
+                id: Date.now(),
+                bookId: apiBook.id,
+                title: apiBook.title,
+                author: apiBook.author,
+                price: apiBook.price,
+                quantity: 1,
+                imageUrl: apiBook.imageUrl,
+              },
+            ];
+        localStorage.setItem(GUEST_CART_KEY, JSON.stringify(nextCart));
+        router.push("/cart");
+        return;
+      }
+
+      if (response.ok) {
+        router.push("/cart");
+      }
+    } finally {
+      setAddingToCart(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#faf8f4] flex flex-col font-sans text-stone-800">
       <Navbar />
@@ -338,6 +385,9 @@ export default function BookDetailPage() {
               {BOOK.quantity > 0 || BOOK.format === 'EBook' ? (
                 <button className="bg-[#8b5a45] hover:bg-[#724a38] text-white px-8 py-2.5 rounded-md font-bold text-xs transition-all shadow-sm">
                   Add to Cart
+              {BOOK.quantity > 0 ? (
+                <button onClick={handleAddToCart} disabled={addingToCart} className="bg-[#8b5a45] hover:bg-[#724a38] text-white px-8 py-2.5 rounded-md font-bold text-xs transition-all shadow-sm disabled:opacity-60">
+                  {addingToCart ? "Adding..." : "Add to Cart"}
                 </button>
               ) : (
                 <button className="bg-stone-200 text-stone-500 px-8 py-2.5 rounded-md font-bold text-xs shadow-sm cursor-not-allowed border border-stone-300">

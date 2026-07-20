@@ -43,6 +43,9 @@ export function Navbar() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // --- State สำหรับจำนวนสินค้าในตะกร้า ---
+  const [cartCount, setCartCount] = useState(0);
+
   // เช็คสิทธิ์ว่าเป็น Admin หรือ Staff
   const isAdminOrStaff = session?.user?.role === "ADMIN" || session?.user?.role === "STAFF";
 
@@ -56,6 +59,29 @@ export function Navbar() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // --- Effect สำหรับดึงจำนวนสินค้าในตะกร้า ---
+  useEffect(() => {
+    if (status !== "authenticated") {
+      setCartCount(0);
+      return;
+    }
+    const fetchCart = async () => {
+      try {
+        const res = await fetch("/api/cart", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        const total = (data.items ?? []).reduce(
+          (sum: number, item: { quantity: number }) => sum + item.quantity,
+          0
+        );
+        setCartCount(total);
+      } catch {
+        // ไม่ทำอะไรถ้า fetch ล้มเหลว
+      }
+    };
+    fetchCart();
+  }, [status]);
 
   // --- Effect สำหรับระบบดึงข้อมูล Search API ---
   useEffect(() => {
@@ -207,9 +233,11 @@ export function Navbar() {
         <div className="flex items-center gap-4">
           <Link href="/cart" className="relative text-amber-900 hover:opacity-80 transition-opacity block">
             <ShoppingCart size={20} />
-            <span className="absolute -top-1.5 -right-1.5 bg-green-700 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
-              2
-            </span>
+            {cartCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 bg-green-700 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                {cartCount > 99 ? "99+" : cartCount}
+              </span>
+            )}
           </Link>
 
           {/* เช็คสถานะล็อกอิน */}

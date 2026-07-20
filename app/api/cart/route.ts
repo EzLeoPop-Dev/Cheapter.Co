@@ -1,0 +1,101 @@
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { prisma } from "@/src/lib/prisma";
+import { authOptions } from "../auth/[...nextauth]/route";
+
+async function requireUser() {
+  const session = await getServerSession(authOptions);
+  return session?.user?.id ? session.user : null;
+}
+
+function serializeCartItem(item: any) {
+  return {
+    id: item.id,
+    bookId: item.bookId,
+    title: item.book.title,
+    author: item.book.author,
+    price: Number(item.book.price),
+    quantity: item.quantity,
+    imageUrl: item.book.image,
+    stock: item.book.stock,
+  };
+}
+
+export async function GET() {
+  const user = await requireUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const items = await prisma.cartItem.findMany({
+    where: { userId: user.id },
+    include: { book: true },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return NextResponse.json({ items: items.map(serializeCartItem) });
+}
+
+export async function POST(req: Request) {
+  const user = await requireUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { bookId, quantity = 1 } = await req.json();
+  const parsedBookId = Number(bookId);
+  const parsedQuantity = Math.max(1, Number(quantity) || 1);
+
+  if (!Number.isInteger(parsedBookId)) {
+    return NextResponse.json({ error: "Invalid bookId" }, { status: 400 });
+  }
+
+  const book = await prisma.book.findUnique({ where: { id: parsedBookId } });
+  if (!book || book.stock <= 0) {
+    return NextResponse.json({ error: "Book is unavailable" }, { status: 400 });
+  }
+
+  await prisma.cartItem.upsert({
+    where: { userId_bookId: { userId: user.id, bookId: parsedBookId } },
+    create: { userId: user.id, bookId: parsedBookId, quantity: Math.min(parsedQuantity, book.stock) },
+    update: { quantity: { increment: parsedQuantity } },
+  });
+
+  const items = await prisma.cartItem.findMany({
+    where: { userId: user.id },
+    include: { book: true },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return NextResponse.json({ items: items.map(serializeCartItem) });
+}
+
+export async function PATCH(req: Request) {
+  const user = await requireUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { itemId, quantity } = await req.json();
+  const parsedItemId = Number(itemId);
+  const parsedQuantity = Math.max(1, Number(quantity) || 1);
+
+  const item = await prisma.cartItem.findFirst({
+    where: { id: parsedItemId, userId: user.id },
+    include: { book: true },
+  });
+
+  if (!item) return NextResponse.json({ error: "Cart item not found" }, { status: 404 });
+
+  await prisma.cartItem.update({
+    where: { id: parsedItemId },
+    data: { quantity: Math.min(parsedQuantity, item.book.stock) },
+  });
+
+  return GET();
+}
+
+export async function DELETE(req: Request) {
+  const user = await requireUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { searchParams } = new URL(req.url);
+  const itemId = Number(searchParams.get("itemId"));
+
+  await prisma.cartItem.deleteMany({ where: { id: itemId, userId: user.id } });
+  return GET();
+}

@@ -1,17 +1,120 @@
 "use client";
 
 import { useState } from "react";
+import { useEffect } from "react";
 import { Navbar } from "../../components/Navbar";
 import { Lock, Truck, CreditCard, ShieldCheck, RefreshCcw, QrCode, HandCoins } from "lucide-react";
+import { useRouter } from "next/navigation";
+
+type CheckoutItem = {
+  id: number;
+  bookId: number;
+  title: string;
+  author: string;
+  price: number;
+  quantity: number;
+  imageUrl: string | null;
+};
+
+const GUEST_CART_KEY = "cheapterCart";
+const LATEST_ORDER_KEY = "cheapterLatestOrder";
+
+type Address = {
+  id: number;
+  name: string;
+  phone: string;
+  streetAddress: string;
+  city: string;
+  zipCode: string;
+};
 
 export default function CheckoutPage() {
+  const router = useRouter();
   const [deliveryMethod, setDeliveryMethod] = useState("standard");
   const [paymentMethod, setPaymentMethod] = useState("card");
-  const [addresses, setAddresses] = useState([
-    { id: 1, name: "Jane Doe", phone: "0812345678", street: "123 Paper St, Apt 4B", city: "Portland", zip: "97204" },
-    { id: 2, name: "John Smith", phone: "0898765432", street: "456 Office Rd, Floor 2", city: "Seattle", zip: "98101" }
-  ]);
-  const [selectedAddressId, setSelectedAddressId] = useState<number | 'new'>(1);
+  const [addresses, setAddresses] = useState<Address[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<number | 'new'>('new');
+  const [cartItems, setCartItems] = useState<CheckoutItem[]>([]);
+  const [newAddress, setNewAddress] = useState({ name: "", phone: "", streetAddress: "", city: "", zipCode: "" });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    async function loadCheckout() {
+      const [profileResponse, cartResponse] = await Promise.all([
+        fetch("/api/profile", { cache: "no-store", credentials: "include" }),
+        fetch("/api/cart", { cache: "no-store", credentials: "include" }),
+      ]);
+
+      if (profileResponse.ok) {
+        const profile = await profileResponse.json();
+        const loadedAddresses = profile.addresses || [];
+        setAddresses(loadedAddresses);
+        setSelectedAddressId(loadedAddresses[0]?.id ?? "new");
+      }
+
+      if (cartResponse.ok) {
+        const cart = await cartResponse.json();
+        setCartItems(cart.items || []);
+        return;
+      }
+
+      const rawCart = localStorage.getItem(GUEST_CART_KEY);
+      setCartItems(rawCart ? JSON.parse(rawCart) : []);
+    }
+
+    loadCheckout();
+  }, []);
+
+  const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const shippingFee = deliveryMethod === "express" ? 12 : 0;
+  const taxes = Number((subtotal * 0.08).toFixed(2));
+  const total = subtotal + shippingFee + taxes;
+
+  const handleCompletePurchase = async () => {
+    try {
+      setIsSubmitting(true);
+      const response = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          shippingMethod: deliveryMethod,
+          paymentMethod,
+          addressId: selectedAddressId === "new" ? undefined : selectedAddressId,
+          address: selectedAddressId === "new" ? newAddress : undefined,
+          items: cartItems,
+        }),
+      });
+
+      if (response.status === 401) {
+        const guestResponse = await fetch("/api/orders/guest", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            shippingMethod: deliveryMethod,
+            paymentMethod,
+            address: selectedAddressId === "new" ? newAddress : addresses.find((address) => address.id === selectedAddressId),
+            items: cartItems,
+          }),
+        });
+        if (guestResponse.ok) {
+          const data = await guestResponse.json();
+          localStorage.setItem(LATEST_ORDER_KEY, JSON.stringify(data.order));
+          localStorage.removeItem(GUEST_CART_KEY);
+          router.push("/tracking");
+        }
+        return;
+      }
+
+      if (response.ok) {
+        const data = await response.json();
+        localStorage.setItem(LATEST_ORDER_KEY, JSON.stringify(data.order));
+        localStorage.removeItem(GUEST_CART_KEY);
+        router.push("/tracking");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#faf8f4] flex flex-col font-sans text-stone-800">
@@ -46,8 +149,8 @@ export default function CheckoutPage() {
                       className={`flex flex-col gap-1 p-4 rounded border cursor-pointer transition-all ${selectedAddressId === addr.id ? "border-[#8b5a45] bg-[#fbf9f6]" : "border-stone-200 bg-white hover:border-stone-300"}`}
                     >
                       <span className="font-bold text-sm text-stone-800">{addr.name} <span className="font-normal text-stone-500 text-xs ml-2">{addr.phone}</span></span>
-                      <span className="text-xs text-stone-500">{addr.street}</span>
-                      <span className="text-xs text-stone-500">{addr.city}, {addr.zip}</span>
+                      <span className="text-xs text-stone-500">{addr.streetAddress}</span>
+                      <span className="text-xs text-stone-500">{addr.city}, {addr.zipCode}</span>
                     </div>
                   ))}
 
@@ -66,29 +169,36 @@ export default function CheckoutPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="flex flex-col gap-1.5">
                       <label className="text-xs text-stone-500">Full Name</label>
-                      <input type="text" placeholder="Jane Doe" className="w-full border border-stone-300 rounded px-3 py-2.5 text-sm focus:outline-none focus:border-[#8b5a45] bg-white" />
+                      <input type="text" value={newAddress.name} onChange={(e) => setNewAddress({...newAddress, name: e.target.value})} placeholder="Jane Doe" className="w-full border border-stone-300 rounded px-3 py-2.5 text-sm focus:outline-none focus:border-[#8b5a45] bg-white" />
                     </div>
                     <div className="flex flex-col gap-1.5">
                       <label className="text-xs text-stone-500">Phone Number</label>
-                      <input type="tel" placeholder="08XXXXXXXX" maxLength={10} onInput={(e) => { e.currentTarget.value = e.currentTarget.value.replace(/[^0-9]/g, '') }} className="w-full border border-stone-300 rounded px-3 py-2.5 text-sm focus:outline-none focus:border-[#8b5a45] bg-white" />
+                      <input type="tel" value={newAddress.phone} onChange={(e) => setNewAddress({...newAddress, phone: e.target.value.replace(/[^0-9]/g, '')})} placeholder="08XXXXXXXX" maxLength={10} className="w-full border border-stone-300 rounded px-3 py-2.5 text-sm focus:outline-none focus:border-[#8b5a45] bg-white" />
                     </div>
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs text-stone-500">Street Address</label>
-                    <input type="text" placeholder="123 Paper St, Apt 4B" className="w-full border border-stone-300 rounded px-3 py-2.5 text-sm focus:outline-none focus:border-[#8b5a45] bg-white" />
+                    <input type="text" value={newAddress.streetAddress} onChange={(e) => setNewAddress({...newAddress, streetAddress: e.target.value})} placeholder="123 Paper St, Apt 4B" className="w-full border border-stone-300 rounded px-3 py-2.5 text-sm focus:outline-none focus:border-[#8b5a45] bg-white" />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="flex flex-col gap-1.5">
                       <label className="text-xs text-stone-500">City</label>
-                      <input type="text" placeholder="Portland" className="w-full border border-stone-300 rounded px-3 py-2.5 text-sm focus:outline-none focus:border-[#8b5a45] bg-white" />
+                      <input type="text" value={newAddress.city} onChange={(e) => setNewAddress({...newAddress, city: e.target.value})} placeholder="Portland" className="w-full border border-stone-300 rounded px-3 py-2.5 text-sm focus:outline-none focus:border-[#8b5a45] bg-white" />
                     </div>
                     <div className="flex flex-col gap-1.5">
                       <label className="text-xs text-stone-500">ZIP Code</label>
-                      <input type="text" placeholder="97204" maxLength={5} onInput={(e) => { e.currentTarget.value = e.currentTarget.value.replace(/[^0-9]/g, '') }} className="w-full border border-stone-300 rounded px-3 py-2.5 text-sm focus:outline-none focus:border-[#8b5a45] bg-white" />
+                      <input type="text" value={newAddress.zipCode} onChange={(e) => setNewAddress({...newAddress, zipCode: e.target.value.replace(/[^0-9]/g, '')})} placeholder="97204" maxLength={5} className="w-full border border-stone-300 rounded px-3 py-2.5 text-sm focus:outline-none focus:border-[#8b5a45] bg-white" />
                     </div>
                   </div>
                   <div className="flex justify-end mt-2">
-                    <button className="bg-stone-800 hover:bg-stone-900 text-white px-6 py-2.5 rounded text-sm font-bold transition-colors">
+                    <button onClick={async () => {
+                      const response = await fetch("/api/address", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ label: "Shipping", ...newAddress }) });
+                      if (response.ok) {
+                        const saved = await response.json();
+                        setAddresses([...addresses, saved]);
+                        setSelectedAddressId(saved.id);
+                      }
+                    }} className="bg-stone-800 hover:bg-stone-900 text-white px-6 py-2.5 rounded text-sm font-bold transition-colors">
                       Save Address
                     </button>
                   </div>
@@ -228,35 +338,21 @@ export default function CheckoutPage() {
             <h2 className="text-xl font-bold text-stone-800">Order Summary</h2>
 
             <div className="flex flex-col gap-4">
-              {/* Item 1 */}
-              <div className="flex gap-4">
-                <div className="w-16 h-20 bg-stone-200 rounded shrink-0 overflow-hidden shadow-sm">
-                  <img src="https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=200&auto=format&fit=crop" alt="Book" className="w-full h-full object-cover" />
-                </div>
-                <div className="flex flex-col flex-1">
-                  <h3 className="text-sm font-bold text-stone-800 leading-tight">The Architecture of Silence</h3>
-                  <p className="text-xs text-stone-500 font-serif italic mt-1">Elena Rostova</p>
-                  <div className="flex items-center justify-between mt-auto">
-                    <span className="text-xs text-stone-500">Qty: 1</span>
-                    <span className="text-sm font-bold text-stone-800">$24.00</span>
+              {cartItems.map((item) => (
+                <div key={item.id} className="flex gap-4">
+                  <div className="w-16 h-20 bg-stone-200 rounded shrink-0 overflow-hidden shadow-sm">
+                    <img src={item.imageUrl || "https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=200&auto=format&fit=crop"} alt="Book" className="w-full h-full object-cover" />
+                  </div>
+                  <div className="flex flex-col flex-1">
+                    <h3 className="text-sm font-bold text-stone-800 leading-tight">{item.title}</h3>
+                    <p className="text-xs text-stone-500 font-serif italic mt-1">{item.author}</p>
+                    <div className="flex items-center justify-between mt-auto">
+                      <span className="text-xs text-stone-500">Qty: {item.quantity}</span>
+                      <span className="text-sm font-bold text-stone-800">฿{(item.price * item.quantity).toFixed(2)}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-
-              {/* Item 2 */}
-              <div className="flex gap-4">
-                <div className="w-16 h-20 bg-stone-200 rounded shrink-0 overflow-hidden shadow-sm">
-                  <img src="https://images.unsplash.com/photo-1589829085413-56de8ae18c73?q=80&w=200&auto=format&fit=crop" alt="Book" className="w-full h-full object-cover" />
-                </div>
-                <div className="flex flex-col flex-1">
-                  <h3 className="text-sm font-bold text-stone-800 leading-tight">Notes on Wabi-Sabi</h3>
-                  <p className="text-xs text-stone-500 font-serif italic mt-1">Kenji Sato</p>
-                  <div className="flex items-center justify-between mt-auto">
-                    <span className="text-xs text-stone-500">Qty: 1</span>
-                    <span className="text-sm font-bold text-stone-800">$18.50</span>
-                  </div>
-                </div>
-              </div>
+              ))}
             </div>
 
             <div className="w-full h-px bg-stone-200 my-2"></div>
@@ -264,15 +360,15 @@ export default function CheckoutPage() {
             <div className="flex flex-col gap-3">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-stone-500">Subtotal</span>
-                <span className="text-stone-800 font-medium">$42.50</span>
+                <span className="text-stone-800 font-medium">฿{subtotal.toFixed(2)}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-stone-500">Shipping</span>
-                <span className="text-stone-800 font-medium">{deliveryMethod === "express" ? "$12.00" : "Free"}</span>
+                <span className="text-stone-800 font-medium">{deliveryMethod === "express" ? "฿12.00" : "Free"}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-stone-500">Taxes</span>
-                <span className="text-stone-800 font-medium">$3.40</span>
+                <span className="text-stone-800 font-medium">฿{taxes.toFixed(2)}</span>
               </div>
             </div>
 
@@ -281,12 +377,12 @@ export default function CheckoutPage() {
             <div className="flex items-center justify-between">
               <span className="font-bold text-stone-800">Total</span>
               <span className="text-lg font-bold text-stone-900">
-                ${(42.50 + 3.40 + (deliveryMethod === "express" ? 12.00 : 0)).toFixed(2)}
+                ฿{total.toFixed(2)}
               </span>
             </div>
 
-            <button className="w-full bg-[#8b5a45] hover:bg-[#724a38] text-white py-4 rounded font-bold text-sm transition-colors mt-2 shadow-sm">
-              Complete Purchase
+            <button onClick={handleCompletePurchase} disabled={isSubmitting || cartItems.length === 0} className="w-full bg-[#8b5a45] hover:bg-[#724a38] text-white py-4 rounded font-bold text-sm transition-colors mt-2 shadow-sm disabled:opacity-60">
+              {isSubmitting ? "Completing..." : "Complete Purchase"}
             </button>
 
             <div className="flex items-center justify-center gap-6 mt-2">
