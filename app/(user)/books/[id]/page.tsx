@@ -42,33 +42,6 @@ const RELATED_BOOKS = [
   { id: "4", title: "Whispers in the Bamboo", author: "Aiko Yamada", price: "$22.00", imageUrl: "https://images.unsplash.com/photo-1629196914234-a69077ee8478?q=80&w=400&auto=format&fit=crop" },
 ];
 
-const MOCK_REVIEWS = [
-  {
-    id: 1,
-    user: "Alice Smith",
-    avatar: "https://i.pravatar.cc/150?u=alice",
-    rating: 5,
-    date: "October 12, 2025",
-    content: "Absolutely captivating from start to finish. The author's prose is beautiful and evocative. I couldn't put it down once I started reading!"
-  },
-  {
-    id: 2,
-    user: "David Johnson",
-    avatar: "https://i.pravatar.cc/150?u=david",
-    rating: 4,
-    date: "September 28, 2025",
-    content: "A very solid read. The character development is excellent, though the pacing in the middle felt a bit slow. Still highly recommended."
-  },
-  {
-    id: 3,
-    user: "Emma Wong",
-    avatar: "https://i.pravatar.cc/150?u=emma",
-    rating: 5,
-    date: "August 05, 2025",
-    content: "This book changed my perspective entirely. A masterpiece of modern literature. I'll be buying a copy for all my friends!"
-  }
-];
-
 const GUEST_CART_KEY = "cheapterCart";
 
 export default function BookDetailPage() {
@@ -239,7 +212,6 @@ export default function BookDetailPage() {
       category: apiBook.category || "Book",
       description: apiBook.description || "No description available.",
       imageUrl: apiBook.imageUrl || "https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=800&auto=format&fit=crop",
-      quote: "",
       quantity: apiBook.quantity,
       format: apiBook.format,
       ebookFile: apiBook.ebookFile,
@@ -383,10 +355,11 @@ export default function BookDetailPage() {
 
             <div className="flex items-center gap-3">
               {BOOK.quantity > 0 || BOOK.format === 'EBook' ? (
-                <button className="bg-[#8b5a45] hover:bg-[#724a38] text-white px-8 py-2.5 rounded-md font-bold text-xs transition-all shadow-sm">
-                  Add to Cart
-              {BOOK.quantity > 0 ? (
-                <button onClick={handleAddToCart} disabled={addingToCart} className="bg-[#8b5a45] hover:bg-[#724a38] text-white px-8 py-2.5 rounded-md font-bold text-xs transition-all shadow-sm disabled:opacity-60">
+                <button 
+                  onClick={handleAddToCart} 
+                  disabled={addingToCart} 
+                  className="bg-[#8b5a45] hover:bg-[#724a38] text-white px-8 py-2.5 rounded-md font-bold text-xs transition-all shadow-sm disabled:opacity-60"
+                >
                   {addingToCart ? "Adding..." : "Add to Cart"}
                 </button>
               ) : (
@@ -394,11 +367,13 @@ export default function BookDetailPage() {
                   สินค้าหมด (Out of Stock)
                 </button>
               )}
+
               {BOOK.quantity === 0 && BOOK.format !== 'EBook' && (
                 <button className="bg-stone-800 hover:bg-stone-900 text-white px-6 py-2.5 rounded-md font-bold text-xs transition-all shadow-sm">
                   แจ้งเตือนเมื่อมีสินค้า
                 </button>
               )}
+
               <button
                 onClick={handleToggleWishlist}
                 className={`flex items-center justify-center gap-2 border px-5 py-2.5 rounded-md font-bold text-xs transition-all bg-white shadow-sm ${isWishlisted
