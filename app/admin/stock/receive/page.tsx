@@ -64,6 +64,15 @@ export default function AdminStockReceivePage() {
     const updated = [...receiveItems];
     let val = parseInt(value) || 0;
     if (val < 0) val = 0;
+
+    const item = updated[index];
+    const otherField = field === 'goodQty' ? 'damagedQty' : 'goodQty';
+    const currentOtherVal = item[otherField] || 0;
+    
+    if (val + currentOtherVal > item.remaining) {
+      val = item.remaining - currentOtherVal;
+    }
+
     updated[index][field] = val;
     setReceiveItems(updated);
   };

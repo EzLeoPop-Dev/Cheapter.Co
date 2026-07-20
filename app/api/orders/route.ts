@@ -205,6 +205,24 @@ export async function POST(req: Request) {
       });
     }
 
+    for (const item of cartItems) {
+      if (!item.bookId) continue;
+      const book = await tx.book.update({
+        where: { id: item.bookId },
+        data: { stock: { decrement: item.quantity } }
+      });
+      await tx.stockMovement.create({
+        data: {
+          type: 'OUT',
+          quantity: item.quantity,
+          reference: `Order ${created.id}`,
+          performedBy: session.user.id,
+          bookId: item.bookId,
+          balanceAfter: book.stock
+        }
+      });
+    }
+
     await tx.cartItem.deleteMany({ where: { userId: session.user.id } });
     return created;
   });

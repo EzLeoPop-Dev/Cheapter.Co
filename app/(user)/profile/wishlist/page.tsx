@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Heart, ShoppingCart, Trash2, Check } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import {
@@ -112,24 +113,26 @@ export default function WishlistPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {wishlistItems.map((item) => (
-          <div key={item.id} className="bg-[#fefdfb] rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow group">
-            <div className="relative h-48 w-full bg-gray-100">
+          <div key={item.id} className="bg-[#fefdfb] rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow group relative">
+            <Link href={`/books/${item.id}`} className="block relative h-48 w-full bg-gray-100">
               <img 
                 src={item.imageUrl || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=400&q=80'} 
                 alt={item.title} 
                 className="w-full h-full object-cover"
               />
-              <button
-                onClick={() => handleRemove(item.id)}
-                className="absolute top-3 right-3 p-2 bg-white/80 backdrop-blur-sm rounded-full text-red-500 hover:bg-white hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </div>
+            </Link>
+            <button
+              onClick={() => handleRemove(item.id)}
+              className="absolute top-3 right-3 p-2 bg-white/80 backdrop-blur-sm rounded-full text-red-500 hover:bg-white hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100 z-10"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
             
             <div className="p-5">
-              <h3 className="font-semibold text-gray-800 line-clamp-1">{item.title}</h3>
-              <p className="text-sm text-gray-500 mb-3">{item.author}</p>
+              <Link href={`/books/${item.id}`} className="block">
+                <h3 className="font-semibold text-gray-800 line-clamp-1 hover:text-[#bc876e] transition-colors">{item.title}</h3>
+                <p className="text-sm text-gray-500 mb-3">{item.author}</p>
+              </Link>
               
               <div className="flex justify-between items-center mb-4">
                 <span className="font-bold text-lg text-[#bc876e]">฿{item.price.toLocaleString()}</span>

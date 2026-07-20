@@ -26,6 +26,27 @@ export async function POST(
 
     const admin = performedBy || 'Admin';
 
+    // Validate each received item first
+    for (const item of receivedItems) {
+      const bookId = Number(item.bookId);
+      const goodQty = Number(item.goodQty) || 0;
+      const damagedQty = Number(item.damagedQty) || 0;
+      const totalReceived = goodQty + damagedQty;
+
+      if (totalReceived <= 0) continue;
+
+      const poItem = po.items.find(i => i.bookId === bookId);
+      if (!poItem) {
+        return NextResponse.json({ error: `ไม่พบหนังสือ ID ${bookId} ในใบสั่งซื้อนี้` }, { status: 400 });
+      }
+
+      if (poItem.received + totalReceived > poItem.ordered) {
+        return NextResponse.json({ 
+          error: `จำนวนรับเข้าเกินจำนวนที่สั่งซื้อ (หนังสือ ID ${bookId})` 
+        }, { status: 400 });
+      }
+    }
+
     // Process each received item
     for (const item of receivedItems) {
       const bookId = Number(item.bookId);

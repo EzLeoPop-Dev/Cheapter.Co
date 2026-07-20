@@ -44,6 +44,7 @@ function toStockItem(book: {
   bookType: "Hardcover" | "EBook" | "Manga" | "Pack";
   category: { name: string } | null;
   updatedAt: Date;
+  orderItems?: { quantity: number }[];
 }) {
   const reorderPoint = getReorderPoint(book.bookType);
   const status = getStockStatus(book.stock, reorderPoint) ?? book.stockStatus;
@@ -54,6 +55,7 @@ function toStockItem(book: {
     category: book.category?.name ?? "Uncategorized",
     price: Number(book.price),
     current: book.stock,
+    sold: book.orderItems ? book.orderItems.reduce((acc, item) => acc + item.quantity, 0) : 0,
     reserved: 0,
     available: book.stock,
     reorderPoint,
@@ -75,10 +77,16 @@ export async function GET() {
     const books = await prisma.book.findMany({
       include: {
         category: {
-          select: {
-            name: true,
-          },
+          select: { name: true },
         },
+        orderItems: {
+          where: {
+            order: {
+              status: { notIn: ["CANCELLED", "REFUNDED"] }
+            }
+          },
+          select: { quantity: true }
+        }
       },
       orderBy: [{ stock: "asc" }, { updatedAt: "desc" }],
     });
@@ -161,14 +169,25 @@ export async function PATCH(request: NextRequest) {
 
     const signedQuantity = mode === "remove" ? -quantity : mode === "set" ? nextStock - existing.stock : quantity;
 
+    const movement = await prisma.stockMovement.create({
+      data: {
+        type: 'ADJUST',
+        quantity: signedQuantity,
+        bookId: bookId,
+        note: reason,
+        balanceAfter: nextStock,
+        performedBy: 'Admin'
+      }
+    });
+
     return Response.json({
       ...toStockItem(updated),
       log: {
-        id: `log-${updated.id}-${Date.now()}`,
-        qty: signedQuantity,
-        balance: updated.stock,
-        ref: reason,
-        date: new Date().toISOString(),
+        id: movement.id,
+        qty: movement.quantity,
+        balance: movement.balanceAfter,
+        ref: movement.note || 'ADJUST',
+        date: movement.createdAt.toISOString(),
       },
     });
   } catch (error) {

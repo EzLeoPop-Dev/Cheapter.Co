@@ -170,8 +170,10 @@ export default function BookDetailPage() {
           setReviews(data.reviews || []);
           setReviewStats(data.stats || null);
         }
-      } catch (error) {
-        console.error("Failed to fetch reviews", error);
+      } catch (error: any) {
+        if (error.name !== 'AbortError') {
+          console.error("Failed to fetch reviews", error);
+        }
       } finally {
         setIsLoadingReviews(false);
       }

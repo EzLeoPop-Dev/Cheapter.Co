@@ -381,7 +381,18 @@ export default function CatalogPage() {
             )}
 
             {/* Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+            {!loading && displayProducts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center min-h-[700px] py-12 text-center">
+                <div className="w-20 h-20 mb-6 rounded-full bg-stone-100 flex items-center justify-center text-stone-300">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-10 h-10">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold text-stone-800 mb-2">ไม่พบหนังสือที่ค้นหา</h3>
+                <p className="text-stone-500 text-sm">ลองปรับตัวกรองหรือเปลี่ยนคำค้นหาใหม่</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
               {displayProducts.map((book) => (
                 <Link
                   href={`/books/${book.id}`}
@@ -435,6 +446,7 @@ export default function CatalogPage() {
                 </Link>
               ))}
             </div>
+            )}
 
             {/* Pagination */}
             <div className="flex items-center justify-center gap-2 mt-16 pb-8">

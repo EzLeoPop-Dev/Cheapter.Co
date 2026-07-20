@@ -145,6 +145,25 @@ export async function POST(req: Request) {
       });
     }
 
+    for (const item of items) {
+      if (!item.bookId) continue;
+      const qty = Number(item.quantity) || 1;
+      const book = await tx.book.update({
+        where: { id: Number(item.bookId) },
+        data: { stock: { decrement: qty } }
+      });
+      await tx.stockMovement.create({
+        data: {
+          type: 'OUT',
+          quantity: qty,
+          reference: `Order ${created.id}`,
+          performedBy: session?.user?.id || 'Guest',
+          bookId: Number(item.bookId),
+          balanceAfter: book.stock
+        }
+      });
+    }
+
     return created;
   });
 
