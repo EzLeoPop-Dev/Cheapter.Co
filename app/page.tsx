@@ -10,21 +10,27 @@ export default async function Home() {
 
   if (process.env.DATABASE_URL?.trim()) {
     const { prisma } = await import('@/src/lib/prisma');
+    const { Prisma } = await import('@prisma/client');
     const activeWhere = {
-      NOT: {
-        OR: [
-          { sampleData: { path: ["adminStatus"], equals: "draft" } },
-          { sampleData: { path: ["adminStatus"], equals: "discontinued" } },
-          {
-            AND: [
-              {
-                NOT: { sampleData: { path: ["adminStatus"], equals: "active" } },
-              },
-              { stock: { lte: 0 } },
-            ],
-          },
-        ],
-      },
+      OR: [
+        { sampleData: { path: ["adminStatus"], equals: "active" } },
+        {
+          AND: [
+            {
+              OR: [
+                { sampleData: { equals: Prisma.AnyNull } },
+                {
+                  AND: [
+                    { NOT: { sampleData: { path: ["adminStatus"], equals: "draft" } } },
+                    { NOT: { sampleData: { path: ["adminStatus"], equals: "discontinued" } } },
+                  ]
+                }
+              ]
+            },
+            { stock: { gt: 0 } },
+          ],
+        },
+      ],
     };
 
     const [books, bestSellers] = await Promise.all([

@@ -70,22 +70,22 @@ export async function GET(
 
     return Response.json({
       book: {
-          id: book.id,
-          title: book.title,
-          author: book.author,
-          description: book.description,
-          price: Number(book.price),
-          image: book.image,
-          stock: book.stock,
-          stockStatus: book.stockStatus,
-          bookType: book.bookType,
-          ebookFile: book.ebookFile,
-          sampleLimit: book.sampleLimit,
-          status: resolveAdminStatus(book.sampleData, book.stock),
-          categoryId: book.category?.id ?? null,
-          categoryName: book.category?.name ?? null,
-          publisherName: book.publisher?.name ?? "",
-        },
+        id: book.id,
+        title: book.title,
+        author: book.author,
+        description: book.description,
+        price: Number(book.price),
+        image: book.image,
+        stock: book.stock,
+        stockStatus: book.stockStatus,
+        bookType: book.bookType,
+        ebookFile: book.ebookFile,
+        sampleLimit: book.sampleLimit,
+        status: resolveAdminStatus(book.sampleData, book.stock),
+        categoryId: book.category?.id ?? null,
+        categoryName: book.category?.name ?? null,
+        publisherName: book.publisher?.name ?? "",
+      },
     });
   } catch (error) {
     console.error("GET /api/admin/books/[id] failed", error);
@@ -116,7 +116,7 @@ export async function PATCH(
     const image = typeof body.image === "string" ? body.image.trim() : null;
     const price = Number(body.price);
     const publisherName = typeof body.publisherName === "string" ? body.publisherName.trim() : "";
-    
+
     const ebookFile = typeof body.ebookFile === "string" ? body.ebookFile.trim() : undefined;
     const sampleLimit = typeof body.sampleLimit === "number" ? body.sampleLimit : undefined;
 
@@ -170,30 +170,30 @@ export async function PATCH(
         ...(sampleLimit !== undefined ? { sampleLimit } : {}),
         ...(status
           ? {
-              sampleData: {
-                ...currentSampleData,
-                adminStatus: status,
-              },
-            }
+            sampleData: {
+              ...currentSampleData,
+              adminStatus: status,
+            },
+          }
           : {}),
         ...(categoryId !== undefined
           ? {
-              category:
-                categoryId === null
-                  ? { disconnect: true }
-                  : { connect: { id: categoryId } },
-            }
+            category:
+              categoryId === null
+                ? { disconnect: true }
+                : { connect: { id: categoryId } },
+          }
           : {}),
         publisher: publisherName
           ? {
-              connectOrCreate: {
-                where: { name: publisherName },
-                create: { name: publisherName },
-              },
-            }
-          : {
-              disconnect: true,
+            connectOrCreate: {
+              where: { name: publisherName },
+              create: { name: publisherName },
             },
+          }
+          : {
+            disconnect: true,
+          },
       },
       include: {
         publisher: {

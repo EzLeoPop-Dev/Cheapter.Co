@@ -20,10 +20,21 @@ export async function GET(
         category: {
           select: { name: true },
         },
+        publisher: {
+          select: { name: true },
+        },
       },
     });
 
     if (dbBook) {
+      let quote = null;
+      if (dbBook.sampleData && typeof dbBook.sampleData === "object" && !Array.isArray(dbBook.sampleData)) {
+        const sd = dbBook.sampleData as Record<string, any>;
+        if (typeof sd.quote === "string") {
+          quote = sd.quote;
+        }
+      }
+
       return Response.json({
         source: "database",
         book: {
@@ -34,6 +45,11 @@ export async function GET(
           imageUrl: dbBook.image,
           price: Number(dbBook.price),
           category: dbBook.category?.name ?? null,
+          publisher: dbBook.publisher?.name ?? null,
+          isbn: dbBook.isbn ?? null,
+          pages: dbBook.pages ?? null,
+          language: dbBook.language ?? "Thai", // Default to Thai if null
+          publishDate: dbBook.publishDate ?? null,
           format: dbBook.bookType,
           quantity: dbBook.stock,
           rating: dbBook.rating ? Number(dbBook.rating) : null,
@@ -41,6 +57,7 @@ export async function GET(
           createdAt: dbBook.createdAt,
           ebookFile: dbBook.ebookFile,
           sampleLimit: dbBook.sampleLimit,
+          quote: quote,
         },
       });
     }

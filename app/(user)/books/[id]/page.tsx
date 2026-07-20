@@ -13,6 +13,29 @@ import {
   toggleWishlistBook,
 } from "@/src/lib/wishlist";
 
+type Review = {
+  id: number;
+  rating: number;
+  comment: string;
+  createdAt: string;
+  user: {
+    name: string;
+    avatar: string | null;
+  };
+};
+
+type ReviewStats = {
+  totalReviews: number;
+  averageRating: number;
+  ratingCounts: {
+    1: number;
+    2: number;
+    3: number;
+    4: number;
+    5: number;
+  };
+};
+
 const RELATED_BOOKS = [
   { id: "2", title: "Echoes of Kyoto", author: "Mei Lin", price: "$26.50", imageUrl: "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?q=80&w=400&auto=format&fit=crop" },
   { id: "3", title: "The Paper Crane", author: "Kenji Sato", price: "$18.00", originalPrice: "$22.00", imageUrl: "https://images.unsplash.com/photo-1512820790803-83ca734da794?q=80&w=400&auto=format&fit=crop" },
@@ -49,6 +72,7 @@ const MOCK_REVIEWS = [
 export default function BookDetailPage() {
   const params = useParams();
   const [isReadMore, setIsReadMore] = useState(false);
+  const [isQuoteExpanded, setIsQuoteExpanded] = useState(false);
   const [apiBook, setApiBook] = useState<null | {
     id: number;
     title: string;
@@ -61,8 +85,20 @@ export default function BookDetailPage() {
     format: string;
     ebookFile?: string | null;
     sampleLimit?: number | null;
+    isbn?: string | null;
+    pages?: number | null;
+    language?: string | null;
+    publishDate?: string | null;
+    publisher?: string | null;
+    quote?: string | null;
   }>(null);
   const [isWishlisted, setIsWishlisted] = useState(false);
+  
+  // Reviews state
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewStats, setReviewStats] = useState<ReviewStats | null>(null);
+  const [selectedRating, setSelectedRating] = useState<number | null>(null);
+  const [isLoadingReviews, setIsLoadingReviews] = useState(true);
 
   useEffect(() => {
     const bookId = Array.isArray(params.id) ? params.id[0] : params.id;
@@ -141,6 +177,35 @@ export default function BookDetailPage() {
     };
   }, [apiBook]);
 
+  useEffect(() => {
+    if (!apiBook) return;
+
+    const controller = new AbortController();
+    
+    async function loadReviews() {
+      setIsLoadingReviews(true);
+      try {
+        const url = `/api/catalog/${apiBook.id}/reviews${selectedRating ? `?rating=${selectedRating}` : ''}`;
+        const res = await fetch(url, { signal: controller.signal });
+        if (res.ok) {
+          const data = await res.json();
+          setReviews(data.reviews || []);
+          setReviewStats(data.stats || null);
+        }
+      } catch (error) {
+        console.error("Failed to fetch reviews", error);
+      } finally {
+        setIsLoadingReviews(false);
+      }
+    }
+
+    loadReviews();
+
+    return () => {
+      controller.abort();
+    };
+  }, [apiBook, selectedRating]);
+
   const BOOK = useMemo(() => {
     if (!apiBook) {
       return {
@@ -154,6 +219,11 @@ export default function BookDetailPage() {
         quote: "",
         quantity: 0,
         format: "Hardcover",
+        isbn: "",
+        pages: 0,
+        language: "Thai",
+        publishDate: "",
+        publisher: "Unknown",
       };
     }
 
@@ -170,6 +240,12 @@ export default function BookDetailPage() {
       format: apiBook.format,
       ebookFile: apiBook.ebookFile,
       sampleLimit: apiBook.sampleLimit,
+      isbn: apiBook.isbn || "-",
+      pages: apiBook.pages || 0,
+      language: apiBook.language || "Thai",
+      publishDate: apiBook.publishDate || "-",
+      publisher: apiBook.publisher || "-",
+      quote: apiBook.quote || "",
     };
   }, [apiBook]);
 
@@ -208,10 +284,10 @@ export default function BookDetailPage() {
       <Navbar />
 
       <main className="flex-1 w-full max-w-7xl mx-auto px-8 py-16">
-        
+
         {/* Top Section */}
         <div className="flex flex-col md:flex-row gap-16 lg:gap-24 mb-32">
-          
+
           {/* Left: Book Cover */}
           <div className="w-full md:w-2/5 shrink-0 flex justify-center">
             <div className="relative w-full max-w-75 aspect-2/3 bg-white rounded-md shadow-2xl p-1.5 transform -rotate-1 transition-transform hover:rotate-0 duration-500">
@@ -231,30 +307,30 @@ export default function BookDetailPage() {
             <span className="text-[9px] font-bold text-stone-400 uppercase tracking-widest mb-3">
               {BOOK.category}
             </span>
-            
+
             <h1 className="text-3xl md:text-4xl font-bold text-stone-800 mb-2 font-serif tracking-tight">
               {BOOK.title}
             </h1>
-            
+
             <p className="text-base text-stone-500 mb-6 font-serif italic">
               by {BOOK.author}
             </p>
-            
+
             <p className="text-lg font-bold text-stone-800 mb-6">
               {BOOK.price}
             </p>
-            
+
             <div className="text-sm text-stone-500 leading-relaxed font-sans mb-4 max-w-xl">
               <p className={isReadMore ? "" : "line-clamp-3"}>
                 {BOOK.description}
               </p>
             </div>
-            
-            <button 
+
+            <button
               onClick={() => setIsReadMore(!isReadMore)}
               className="text-[#b46b45] text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 hover:text-stone-800 transition-colors mb-10 w-fit"
             >
-              Read {isReadMore ? "less" : "more"} 
+              Read {isReadMore ? "less" : "more"}
               <ChevronDown size={12} className={`transform transition-transform ${isReadMore ? "rotate-180" : ""}`} />
             </button>
 
@@ -275,18 +351,17 @@ export default function BookDetailPage() {
               )}
               <button
                 onClick={handleToggleWishlist}
-                className={`flex items-center justify-center gap-2 border px-5 py-2.5 rounded-md font-bold text-xs transition-all bg-white shadow-sm ${
-                  isWishlisted
+                className={`flex items-center justify-center gap-2 border px-5 py-2.5 rounded-md font-bold text-xs transition-all bg-white shadow-sm ${isWishlisted
                     ? "border-[#b46b45] text-[#b46b45]"
                     : "border-stone-300 text-stone-600 hover:text-[#b46b45] hover:border-[#b46b45]"
-                }`}
+                  }`}
               >
                 <Heart size={14} className={isWishlisted ? "fill-[#b46b45]" : ""} />
                 {isWishlisted ? "Wishlisted" : "Wishlist"}
               </button>
-              
+
               {BOOK.format === 'EBook' && BOOK.ebookFile && BOOK.sampleLimit && (
-                <button 
+                <button
                   onClick={() => {
                     let url = BOOK.ebookFile;
                     if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
@@ -303,13 +378,168 @@ export default function BookDetailPage() {
           </div>
         </div>
 
-        {/* Middle Section: Quote */}
-        <div className="w-full max-w-3xl mx-auto py-12 mb-20 relative">
-          <Quote className="absolute top-4 left-0 text-[#e6dbcc] opacity-50 rotate-180" size={36} />
-          <p className="text-xl md:text-2xl text-center text-stone-700 font-serif leading-relaxed px-10 z-10 relative">
-            {BOOK.quote}
-          </p>
-          <Quote className="absolute bottom-4 right-0 text-[#e6dbcc] opacity-50" size={36} />
+        {/* Middle Section: Quote (Synopsis) */}
+        {BOOK.quote && (
+          <div className="w-full py-12 mb-20 relative border-t border-stone-200/50">
+            <Quote className="absolute top-4 left-0 text-[#e6dbcc] opacity-50 rotate-180" size={36} />
+            <div className="px-12 z-10 relative">
+              <p className={`text-xl md:text-2xl text-left text-stone-700 font-serif leading-relaxed ${isQuoteExpanded ? "" : "line-clamp-3"}`}>
+                {BOOK.quote}
+              </p>
+              <button
+                onClick={() => setIsQuoteExpanded(!isQuoteExpanded)}
+                className="mt-4 text-[#b46b45] text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 hover:text-stone-800 transition-colors w-fit"
+              >
+                Read {isQuoteExpanded ? "less" : "more"}
+                <ChevronDown size={12} className={`transform transition-transform ${isQuoteExpanded ? "rotate-180" : ""}`} />
+              </button>
+            </div>
+            <Quote className="absolute bottom-4 right-0 text-[#e6dbcc] opacity-50" size={36} />
+          </div>
+        )}
+
+        {/* Middle Section: Book Details */}
+        <div className={`w-full max-w-4xl mx-auto py-12 mb-20 ${!BOOK.quote ? 'border-t border-stone-200/50' : ''}`}>
+          <h2 className="text-xl font-bold text-stone-800 font-serif mb-6 tracking-tight">รายละเอียดหนังสือ (Product Details)</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 text-sm">
+            <div className="flex flex-col gap-1">
+              <span className="text-stone-400 font-medium text-[10px] uppercase tracking-wider">ISBN</span>
+              <span className="text-stone-800 font-semibold">{BOOK.isbn}</span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-stone-400 font-medium text-[10px] uppercase tracking-wider">สำนักพิมพ์ (Publisher)</span>
+              <span className="text-stone-800 font-semibold">{BOOK.publisher}</span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-stone-400 font-medium text-[10px] uppercase tracking-wider">วันที่ตีพิมพ์ (Publication Date)</span>
+              <span className="text-stone-800 font-semibold">{BOOK.publishDate}</span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-stone-400 font-medium text-[10px] uppercase tracking-wider">จำนวนหน้า (Pages)</span>
+              <span className="text-stone-800 font-semibold">{BOOK.pages > 0 ? `${BOOK.pages} หน้า` : "-"}</span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-stone-400 font-medium text-[10px] uppercase tracking-wider">รูปแบบ (Format)</span>
+              <span className="text-stone-800 font-semibold">{BOOK.format}</span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-stone-400 font-medium text-[10px] uppercase tracking-wider">ภาษา (Language)</span>
+              <span className="text-stone-800 font-semibold">{BOOK.language}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Reviews Section */}
+        <div className="w-full pt-16 border-t border-stone-200/50 mb-16">
+          <h2 className="text-2xl font-bold text-stone-800 font-serif tracking-tight mb-8">รีวิวจากผู้อ่าน (Customer Reviews)</h2>
+          
+          <div className="flex flex-col md:flex-row gap-12">
+            {/* Left: Summary & Breakdown */}
+            <div className="w-full md:w-1/3 shrink-0">
+              {reviewStats && reviewStats.totalReviews > 0 ? (
+                <>
+                  <div className="flex items-end gap-3 mb-6">
+                    <span className="text-5xl font-bold text-stone-800 leading-none">{reviewStats.averageRating.toFixed(1)}</span>
+                    <div className="flex flex-col gap-1 pb-1">
+                      <div className="flex gap-0.5">
+                        {[1, 2, 3, 4, 5].map(star => (
+                          <Star 
+                            key={star} 
+                            size={16} 
+                            className={star <= Math.round(reviewStats.averageRating) ? "fill-[#b46b45] text-[#b46b45]" : "fill-stone-200 text-stone-200"} 
+                          />
+                        ))}
+                      </div>
+                      <span className="text-xs text-stone-500 font-medium">{reviewStats.totalReviews} reviews</span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    {[5, 4, 3, 2, 1].map(star => {
+                      const count = reviewStats.ratingCounts[star as keyof typeof reviewStats.ratingCounts] || 0;
+                      const percentage = reviewStats.totalReviews > 0 ? (count / reviewStats.totalReviews) * 100 : 0;
+                      const isSelected = selectedRating === star;
+                      
+                      return (
+                        <button 
+                          key={star}
+                          onClick={() => setSelectedRating(isSelected ? null : star)}
+                          className={`flex items-center gap-3 group w-full text-left transition-opacity ${selectedRating && !isSelected ? 'opacity-40 hover:opacity-100' : ''}`}
+                        >
+                          <div className="flex items-center gap-1 w-10 shrink-0">
+                            <span className={`text-xs font-bold ${isSelected ? 'text-[#b46b45]' : 'text-stone-600'}`}>{star}</span>
+                            <Star size={10} className={isSelected ? 'fill-[#b46b45] text-[#b46b45]' : 'fill-stone-400 text-stone-400'} />
+                          </div>
+                          <div className="flex-1 h-2 bg-stone-200 rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full rounded-full transition-all duration-500 ${isSelected ? 'bg-[#b46b45]' : 'bg-[#d2a38c] group-hover:bg-[#b46b45]'}`}
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
+                          <span className="text-xs text-stone-500 w-8 text-right tabular-nums">{count}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  
+                  {selectedRating && (
+                    <button 
+                      onClick={() => setSelectedRating(null)}
+                      className="mt-6 text-xs text-stone-500 hover:text-stone-800 border border-stone-300 hover:border-stone-400 rounded-md px-4 py-1.5 transition-colors"
+                    >
+                      Clear Filter
+                    </button>
+                  )}
+                </>
+              ) : (
+                <div className="text-stone-500 text-sm">ยังไม่มีรีวิวสำหรับหนังสือเล่มนี้ (No reviews yet)</div>
+              )}
+            </div>
+
+            {/* Right: Review List */}
+            <div className="w-full md:w-2/3 flex flex-col gap-6">
+              {isLoadingReviews ? (
+                <div className="flex justify-center items-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#b46b45]"></div>
+                </div>
+              ) : reviews.length > 0 ? (
+                reviews.map(review => (
+                  <div key={review.id} className="bg-white p-5 rounded-lg shadow-sm border border-stone-100">
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex items-center gap-3">
+                        {review.user.avatar ? (
+                          <img src={review.user.avatar} alt={review.user.name} className="w-10 h-10 rounded-full object-cover" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-[#f4f1eb] flex items-center justify-center text-[#b46b45] font-bold text-sm">
+                            {review.user.name.charAt(0)}
+                          </div>
+                        )}
+                        <div>
+                          <div className="font-bold text-sm text-stone-800">{review.user.name}</div>
+                          <div className="text-[10px] text-stone-400">{new Date(review.createdAt).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+                        </div>
+                      </div>
+                      <div className="flex gap-0.5">
+                        {[1, 2, 3, 4, 5].map(star => (
+                          <Star 
+                            key={star} 
+                            size={12} 
+                            className={star <= review.rating ? "fill-[#b46b45] text-[#b46b45]" : "fill-stone-200 text-stone-200"} 
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <p className="text-sm text-stone-600 leading-relaxed font-sans">{review.comment}</p>
+                  </div>
+                ))
+              ) : (
+                <div className="bg-white p-8 rounded-lg shadow-sm border border-stone-100 text-center flex flex-col items-center justify-center">
+                  <Quote size={32} className="text-stone-200 mb-3" />
+                  <p className="text-stone-500 text-sm">ไม่มีรีวิวที่ตรงกับตัวกรองของคุณ (No reviews matching your filter)</p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Bottom Section: Recommendations */}

@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
-import type { Prisma, BookType } from "@prisma/client";
+import type { BookType } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/src/lib/prisma";
 
@@ -106,20 +107,29 @@ export async function GET(request: NextRequest) {
     const requestedPage = parsePage(searchParams.get("page"));
 
     const where: Prisma.BookWhereInput = {
-      NOT: {
-        OR: [
-          { sampleData: { path: ["adminStatus"], equals: "draft" } },
-          { sampleData: { path: ["adminStatus"], equals: "discontinued" } },
-          {
-            AND: [
-              {
-                NOT: { sampleData: { path: ["adminStatus"], equals: "active" } },
-              },
-              { stock: { lte: 0 } },
-            ],
-          },
-        ],
-      },
+      AND: [
+        {
+          OR: [
+            { sampleData: { path: ["adminStatus"], equals: "active" } },
+            {
+              AND: [
+                {
+                  OR: [
+                    { sampleData: { equals: Prisma.AnyNull } },
+                    {
+                      AND: [
+                        { NOT: { sampleData: { path: ["adminStatus"], equals: "draft" } } },
+                        { NOT: { sampleData: { path: ["adminStatus"], equals: "discontinued" } } },
+                      ]
+                    }
+                  ]
+                },
+                { stock: { gt: 0 } },
+              ],
+            },
+          ],
+        }
+      ]
     };
 
     if (category) {
@@ -147,20 +157,22 @@ export async function GET(request: NextRequest) {
     }
 
     if (query) {
-      where.OR = [
-        {
-          title: {
-            contains: query,
-            mode: "insensitive",
+      (where.AND as Prisma.BookWhereInput[]).push({
+        OR: [
+          {
+            title: {
+              contains: query,
+              mode: "insensitive",
+            },
           },
-        },
-        {
-          author: {
-            contains: query,
-            mode: "insensitive",
+          {
+            author: {
+              contains: query,
+              mode: "insensitive",
+            },
           },
-        },
-      ];
+        ],
+      });
     }
 
     const totalCount = await prisma.book.count({ where });

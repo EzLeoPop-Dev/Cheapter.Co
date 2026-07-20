@@ -61,6 +61,7 @@ type PostBody = {
   status?: "draft" | "active" | "discontinued";
   ebookFile?: string | null;
   sampleLimit?: number | null;
+  quote?: string | null;
 };
 
 export async function POST(request: NextRequest) {
@@ -86,6 +87,7 @@ export async function POST(request: NextRequest) {
 
     const ebookFile = typeof body?.ebookFile === "string" ? body.ebookFile.trim() : null;
     const sampleLimit = typeof body?.sampleLimit === "number" ? body.sampleLimit : null;
+    const quote = typeof body?.quote === "string" ? body.quote.trim() : null;
 
     if (!title) {
       return Response.json({ message: "Title is required" }, { status: 400 });
@@ -112,6 +114,7 @@ export async function POST(request: NextRequest) {
 
     const sampleData = {
       adminStatus: status,
+      ...(quote ? { quote } : {}),
     } as any;
 
     const created = await prisma.book.create({

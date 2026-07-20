@@ -140,14 +140,14 @@ export function Navbar() {
         <Link href="/catalog" className="relative after:absolute after:-bottom-1 after:left-0 after:w-full after:h-0.5 after:bg-amber-900 text-amber-900">
           {t('nav.catalog')}
         </Link>
-        <Link href="/catalog?filter=new" className="hover:text-amber-900 transition-colors">
-          {t('nav.newArrivals')}
+        <Link href="/book-packs" className="hover:text-amber-900 transition-colors">
+          {t('nav.bookPack')}
         </Link>
         <Link href="/" className="hover:text-amber-900 transition-colors">
           {t('nav.editorial')}
         </Link>
-        <Link href="/" className="hover:text-amber-900 transition-colors">
-          {t('nav.about')}
+        <Link href="/catalog?formats=EBook" className="hover:text-amber-900 transition-colors">
+          {t('nav.ebooks')}
         </Link>
       </div>
       

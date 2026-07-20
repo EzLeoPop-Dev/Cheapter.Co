@@ -25,6 +25,7 @@ export default function AdminNewProductPage() {
     publisher: '',
     categoryId: '',
     description: '',
+    quote: '',
     price: '',
     cost: '',
     sku: '',
@@ -164,6 +165,7 @@ export default function AdminNewProductPage() {
           ebookFile: formData.ebookFile, 
           sampleLimit: formData.trialLimit ? Number(formData.trialLimit) : null 
         } : {}),
+        quote: formData.quote,
       };
 
       const res = await fetch('/api/admin/books', {
@@ -287,6 +289,18 @@ export default function AdminNewProductPage() {
                   onChange={handleInputChange}
                   placeholder={t('prod.new.descPh')} 
                   rows={5}
+                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-gray-900 transition-shadow resize-none" 
+                ></textarea>
+              </div>
+
+              <div>
+                <label className="text-sm font-bold text-gray-700 block mb-1.5">คำโปรย / เรื่องย่อสั้นๆ (Quote / Synopsis)</label>
+                <textarea 
+                  name="quote"
+                  value={formData.quote}
+                  onChange={handleInputChange}
+                  placeholder="เช่น ประโยคเด็ดจากในหนังสือ หรือคำโปรยสั้นๆ..." 
+                  rows={2}
                   className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-gray-900 transition-shadow resize-none" 
                 ></textarea>
               </div>

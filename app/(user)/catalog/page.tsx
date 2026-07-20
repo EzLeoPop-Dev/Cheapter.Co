@@ -63,8 +63,12 @@ const FORMAT_LABELS: Record<CatalogBook["format"], string> = {
 
 export default function CatalogPage() {
   const searchParams = useSearchParams();
-  const [selectedCategory, setSelectedCategory] = useState<string>("");
-  const [selectedFormats, setSelectedFormats] = useState<CatalogBook["format"][]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>(searchParams.get("category") || "");
+  const [selectedFormats, setSelectedFormats] = useState<CatalogBook["format"][]>(() => {
+    const formatsParam = searchParams.get("formats");
+    if (!formatsParam) return [];
+    return formatsParam.split(",").filter(f => f === "Hardcover" || f === "EBook" || f === "Manga") as CatalogBook["format"][];
+  });
   const [minPrice, setMinPrice] = useState<string>("");
   const [maxPrice, setMaxPrice] = useState<string>("");
   const [sortBy, setSortBy] = useState<SortBy>("newest");

@@ -14,7 +14,7 @@ export default function AdminEditProductPage() {
   const { t } = useLanguage();
   const params = useParams();
   const id = Array.isArray(params?.id) ? params.id[0] : params?.id;
-  
+
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<any>(null);
@@ -24,7 +24,7 @@ export default function AdminEditProductPage() {
   const [showChapterModal, setShowChapterModal] = useState(false);
   const [editingChapter, setEditingChapter] = useState<any>(null);
   const [categories, setCategories] = useState<any[]>([]);
-  
+
   const [formData, setFormData] = useState({
     title: '',
     author: '',
@@ -163,37 +163,37 @@ export default function AdminEditProductPage() {
   const handleEbookUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
+
     // File validation
     if (!['application/pdf', 'application/epub+zip'].includes(file.type) && !file.name.endsWith('.epub')) {
       alert('กรุณาอัปโหลดไฟล์ PDF หรือ EPUB เท่านั้น');
       return;
     }
-    
+
     try {
       setEbookUploadProgress('กำลังอัปโหลดไฟล์...');
       const supabase = createClient();
-      
+
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
       const filePath = `ebooks/${fileName}`;
-      
+
       const { data, error } = await supabase.storage
         .from('ebooks')
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: false
         });
-        
+
       if (error) {
         throw error;
       }
-      
+
       // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('ebooks')
         .getPublicUrl(filePath);
-        
+
       setFormData(prev => ({ ...prev, ebookFile: publicUrl }));
       setEbookUploadProgress('อัปโหลดสำเร็จแล้ว');
     } catch (err: any) {
@@ -219,9 +219,9 @@ export default function AdminEditProductPage() {
         image: coverImage || null,
         bookType: mapUiTypeToDbType(formData.type),
         status: formData.status,
-        ...(formData.type === 'ebook' ? { 
-          ebookFile: formData.ebookFile, 
-          sampleLimit: formData.trialLimit ? Number(formData.trialLimit) : null 
+        ...(formData.type === 'ebook' ? {
+          ebookFile: formData.ebookFile,
+          sampleLimit: formData.trialLimit ? Number(formData.trialLimit) : null
         } : {}),
       };
 
@@ -288,13 +288,13 @@ export default function AdminEditProductPage() {
               </p>
             </div>
             <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
-              <button 
+              <button
                 onClick={() => setShowDiscontinueConfirm(false)}
                 className="px-4 py-2 font-bold text-gray-600 hover:bg-gray-200 rounded-xl transition-colors text-sm"
               >
                 ยกเลิก
               </button>
-              <button 
+              <button
                 onClick={handleDiscontinue}
                 className="px-4 py-2 font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors text-sm shadow-sm"
               >
@@ -317,7 +317,7 @@ export default function AdminEditProductPage() {
         </div>
         <div className="flex gap-3">
           {(formData.status === 'active' || formData.status === 'discontinued') && (
-            <button 
+            <button
               onClick={() => setShowDiscontinueConfirm(true)}
               disabled={formData.status === 'discontinued'}
               className="px-5 py-2.5 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
@@ -329,7 +329,7 @@ export default function AdminEditProductPage() {
           <Link href="/admin/products" className="px-5 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-50 transition-colors shadow-sm">
             {t('prod.new.cancel')}
           </Link>
-          <button 
+          <button
             onClick={handleSave}
             disabled={isSaving}
             className="px-6 py-2.5 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition-colors shadow-md flex items-center gap-2 disabled:opacity-70"
@@ -350,41 +350,41 @@ export default function AdminEditProductPage() {
           {/* Basic Info */}
           <div className="bg-white rounded-2xl shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] border border-gray-200 p-6">
             <h3 className="text-lg font-black text-gray-900 mb-6">{t('prod.new.basicInfo')}</h3>
-            
+
             <div className="space-y-5">
               <div>
                 <label className="text-sm font-bold text-gray-700 block mb-1.5">{t('prod.new.name')} <span className="text-red-500">*</span></label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   name="title"
                   value={formData.title}
                   onChange={handleInputChange}
-                  placeholder={t('prod.new.namePh')} 
-                  className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-gray-900 transition-shadow" 
+                  placeholder={t('prod.new.namePh')}
+                  className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-gray-900 transition-shadow"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-5">
                 <div>
                   <label className="text-sm font-bold text-gray-700 block mb-1.5">{t('prod.new.author')}</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     name="author"
                     value={formData.author}
                     onChange={handleInputChange}
-                    placeholder={t('prod.new.authorPh')} 
-                    className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-gray-900 transition-shadow" 
+                    placeholder={t('prod.new.authorPh')}
+                    className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-gray-900 transition-shadow"
                   />
                 </div>
                 <div>
                   <label className="text-sm font-bold text-gray-700 block mb-1.5">{t('prod.new.publisher')}</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     name="publisher"
                     value={formData.publisher}
                     onChange={handleInputChange}
-                    placeholder={t('prod.new.publisherPh')} 
-                    className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-gray-900 transition-shadow" 
+                    placeholder={t('prod.new.publisherPh')}
+                    className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-gray-900 transition-shadow"
                   />
                 </div>
               </div>
@@ -408,13 +408,13 @@ export default function AdminEditProductPage() {
 
               <div>
                 <label className="text-sm font-bold text-gray-700 block mb-1.5">{t('prod.new.desc')}</label>
-                <textarea 
+                <textarea
                   name="description"
                   value={formData.description}
                   onChange={handleInputChange}
-                  placeholder={t('prod.new.descPh')} 
+                  placeholder={t('prod.new.descPh')}
                   rows={5}
-                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-gray-900 transition-shadow resize-none" 
+                  className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-gray-900 transition-shadow resize-none"
                 ></textarea>
               </div>
             </div>
@@ -423,31 +423,31 @@ export default function AdminEditProductPage() {
           {/* Pricing & Inventory */}
           <div className="bg-white rounded-2xl shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] border border-gray-200 p-6">
             <h3 className="text-lg font-black text-gray-900 mb-6">{formData.type === 'serial' ? 'ราคาเหมาจ่าย (ถ้ามี)' : t('prod.new.pricing')}</h3>
-            
+
             <div className="grid grid-cols-2 gap-5 mb-5">
               <div>
                 <label className="text-sm font-bold text-gray-700 block mb-1.5">
-                  {formData.type === 'serial' ? 'ราคาเหมาทุกตอน' : t('prod.new.price')} 
+                  {formData.type === 'serial' ? 'ราคาเหมาทุกตอน' : t('prod.new.price')}
                   {formData.type !== 'serial' && <span className="text-red-500"> *</span>}
                 </label>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   name="price"
                   value={formData.price}
                   onChange={handleInputChange}
-                  placeholder={formData.type === 'serial' ? "เว้นว่างได้" : "0.00"} 
-                  className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-gray-900 transition-shadow font-mono" 
+                  placeholder={formData.type === 'serial' ? "เว้นว่างได้" : "0.00"}
+                  className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-gray-900 transition-shadow font-mono"
                 />
               </div>
               <div>
                 <label className="text-sm font-bold text-gray-700 block mb-1.5">{t('prod.new.cost')}</label>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   name="cost"
                   value={formData.cost}
                   onChange={handleInputChange}
-                  placeholder="0.00" 
-                  className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-gray-900 transition-shadow font-mono" 
+                  placeholder="0.00"
+                  className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-gray-900 transition-shadow font-mono"
                 />
               </div>
             </div>
@@ -456,11 +456,11 @@ export default function AdminEditProductPage() {
                 <AlertCircle className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
                 <div>
                   <label className="text-sm font-bold text-gray-700 block mb-1">จำนวนสต็อก (Quantity)</label>
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     value={formData.quantity}
                     disabled
-                    className="w-full px-4 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-sm text-gray-500 font-mono cursor-not-allowed mb-1" 
+                    className="w-full px-4 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-sm text-gray-500 font-mono cursor-not-allowed mb-1"
                   />
                   <p className="text-xs text-gray-500 font-medium">
                     จำนวนสต็อกจะถูกอัปเดตผ่านเมนูรับสินค้า (Receive PO) หรือปรับปรุงสต็อกเท่านั้น
@@ -472,29 +472,29 @@ export default function AdminEditProductPage() {
             <div className="grid grid-cols-2 gap-5">
               <div>
                 <label className="text-sm font-bold text-gray-700 block mb-1.5">{t('prod.new.sku')} <span className="text-red-500">*</span></label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   name="sku"
                   value={formData.sku}
                   onChange={handleInputChange}
                   disabled
-                  className="w-full px-4 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-sm text-gray-500 font-mono cursor-not-allowed" 
+                  className="w-full px-4 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-sm text-gray-500 font-mono cursor-not-allowed"
                 />
               </div>
               {formData.type === 'physical' && (
                 <div>
                   <label className="text-sm font-bold text-gray-700 block mb-1.5">{t('prod.new.barcode')}</label>
                   <div className="relative">
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       name="barcode"
                       value={formData.barcode}
                       onChange={handleInputChange}
-                      placeholder="978-X-XXXX-XXXX-X" 
-                      className="w-full px-4 py-2.5 pr-12 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-gray-900 transition-shadow font-mono" 
+                      placeholder="978-X-XXXX-XXXX-X"
+                      className="w-full px-4 py-2.5 pr-12 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-gray-900 transition-shadow font-mono"
                     />
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       onClick={() => setShowScanner(true)}
                       className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg transition-colors"
                       title="Scan Barcode"
@@ -511,7 +511,7 @@ export default function AdminEditProductPage() {
           {formData.type === 'ebook' && (
             <div className="bg-white rounded-2xl shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] border border-gray-200 p-6">
               <h3 className="text-lg font-black text-gray-900 mb-6">ตั้งค่า E-Book</h3>
-              
+
               <div className="space-y-5">
                 <div>
                   <label className="text-sm font-bold text-gray-700 block mb-1.5">อัปโหลดไฟล์ E-Book (PDF/EPUB) <span className="text-red-500">*</span></label>
@@ -544,10 +544,10 @@ export default function AdminEditProductPage() {
                           </a>
                         </div>
                       </div>
-                      <button 
-                        type="button" 
+                      <button
+                        type="button"
                         onClick={() => {
-                          setFormData(prev => ({...prev, ebookFile: ''}));
+                          setFormData(prev => ({ ...prev, ebookFile: '' }));
                           setEbookUploadProgress(null);
                         }}
                         className="text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors ml-2"
@@ -561,13 +561,13 @@ export default function AdminEditProductPage() {
 
                 <div>
                   <label className="text-sm font-bold text-gray-700 block mb-1.5">จำกัดการทดลองอ่าน (จำนวนหน้า)</label>
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     name="trialLimit"
                     value={formData.trialLimit}
                     onChange={handleInputChange}
-                    placeholder="เช่น 15" 
-                    className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-gray-900 transition-shadow font-mono" 
+                    placeholder="เช่น 15"
+                    className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-gray-900 transition-shadow font-mono"
                   />
                   <p className="text-xs text-gray-500 mt-1.5">เว้นว่างไว้หากไม่ต้องการให้ทดลองอ่าน</p>
                 </div>
@@ -583,14 +583,14 @@ export default function AdminEditProductPage() {
                   <Layers className="w-5 h-5 text-gray-900" />
                   จัดการตอน (Chapters)
                 </h3>
-                <button 
+                <button
                   onClick={(e) => { e.preventDefault(); setEditingChapter(null); setShowChapterModal(true); }}
                   className="px-4 py-2 bg-gray-900 text-white font-bold text-sm rounded-xl hover:bg-gray-800 transition-colors flex items-center gap-2 shadow-sm"
                 >
                   <Plus className="w-4 h-4" /> เพิ่มตอนใหม่
                 </button>
               </div>
-              
+
               <div className="space-y-3">
                 {(!formData.chapters || formData.chapters.length === 0) ? (
                   <div className="py-8 text-center bg-gray-50 border border-dashed border-gray-200 rounded-xl">
@@ -615,14 +615,14 @@ export default function AdminEditProductPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button 
+                        <button
                           type="button"
                           onClick={(e) => { e.preventDefault(); setEditingChapter(chapter); setShowChapterModal(true); }}
                           className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
                         >
                           <Edit className="w-4 h-4" />
                         </button>
-                        <button 
+                        <button
                           type="button"
                           onClick={(e) => { e.preventDefault(); handleDeleteChapter(chapter.id); }}
                           className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -665,7 +665,7 @@ export default function AdminEditProductPage() {
                   <div className="text-xs text-gray-500">พร้อมขายบนหน้าร้าน</div>
                 </div>
               </label>
-              
+
               <label className={`flex items-center p-3 border rounded-xl cursor-pointer transition-colors ${formData.status === 'discontinued' ? 'bg-red-50 border-red-500' : 'border-gray-200 hover:bg-gray-50'}`}>
                 <input type="radio" name="status" value="discontinued" checked={formData.status === 'discontinued'} onChange={handleInputChange} className="hidden" />
                 <div className={`w-4 h-4 rounded-full border-2 mr-3 flex items-center justify-center ${formData.status === 'discontinued' ? 'border-red-500' : 'border-gray-300'}`}>
@@ -683,7 +683,7 @@ export default function AdminEditProductPage() {
           <div className="bg-white rounded-2xl shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] border border-gray-200 p-6">
             <h3 className="text-lg font-black text-gray-900 mb-4">{t('prod.new.type')}</h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <button 
+              <button
                 type="button"
                 onClick={() => setFormData(prev => ({ ...prev, type: 'physical' }))}
                 className={`py-3 px-2 rounded-xl border flex flex-col items-center justify-center gap-2 transition-colors ${formData.type === 'physical' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}
@@ -691,7 +691,7 @@ export default function AdminEditProductPage() {
                 <Package className="w-5 h-5" />
                 <span className="font-bold text-xs">{t('prod.new.typePhysical')}</span>
               </button>
-              <button 
+              <button
                 type="button"
                 onClick={() => setFormData(prev => ({ ...prev, type: 'ebook' }))}
                 className={`py-3 px-2 rounded-xl border flex flex-col items-center justify-center gap-2 transition-colors ${formData.type === 'ebook' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}
@@ -699,7 +699,7 @@ export default function AdminEditProductPage() {
                 <Book className="w-5 h-5" />
                 <span className="font-bold text-xs">{t('prod.new.typeEbook')}</span>
               </button>
-              <button 
+              <button
                 type="button"
                 onClick={() => setFormData(prev => ({ ...prev, type: 'serial' }))}
                 className={`py-3 px-2 rounded-xl border flex flex-col items-center justify-center gap-2 transition-colors ${formData.type === 'serial' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}
@@ -713,22 +713,22 @@ export default function AdminEditProductPage() {
           {/* Media */}
           <div className="bg-white rounded-2xl shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] border border-gray-200 p-6">
             <h3 className="text-lg font-black text-gray-900 mb-4">{t('prod.new.media')}</h3>
-            
+
             <div className="border-2 border-dashed border-gray-200 rounded-xl overflow-hidden relative group bg-gray-50">
-              <input 
-                type="file" 
-                accept="image/*" 
+              <input
+                type="file"
+                accept="image/*"
                 onChange={handleImageChange}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
               />
-              
+
               {coverImage ? (
                 <div className="relative aspect-3/4 w-full">
                   <img src={coverImage} alt="Cover Preview" className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                     <span className="text-white font-bold text-sm bg-black/50 px-3 py-1.5 rounded-lg">Change Image</span>
                   </div>
-                  <button 
+                  <button
                     type="button"
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); setCoverImage(null); }}
                     className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors z-20 shadow-sm"
@@ -749,12 +749,12 @@ export default function AdminEditProductPage() {
           </div>
         </div>
       </div>
-      <MockBarcodeScannerModal 
-        isOpen={showScanner} 
-        onClose={() => setShowScanner(false)} 
-        onScan={handleScanBarcode} 
+      <MockBarcodeScannerModal
+        isOpen={showScanner}
+        onClose={() => setShowScanner(false)}
+        onScan={handleScanBarcode}
       />
-      <ChapterModal 
+      <ChapterModal
         isOpen={showChapterModal}
         onClose={() => setShowChapterModal(false)}
         onSave={handleSaveChapter}

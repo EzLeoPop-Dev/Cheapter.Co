@@ -261,9 +261,9 @@ const translations = {
 
     // Storefront - Nav
     'nav.catalog': 'แคตตาล็อก',
-    'nav.newArrivals': 'มาใหม่',
+    'nav.bookPack': 'เเพ็คหนังสือ',
     'nav.editorial': 'บทความ',
-    'nav.about': 'เกี่ยวกับเรา',
+    'nav.ebooks': 'หนังสือดิจิตอล',
     'nav.searchPh': 'ค้นหาหนังสือ, นักเขียน...',
 
     // Storefront - Home
@@ -586,9 +586,9 @@ const translations = {
 
     // Storefront - Nav
     'nav.catalog': 'Catalog',
-    'nav.newArrivals': 'New Arrivals',
+    'nav.bookPack': 'Book Packs',
     'nav.editorial': 'Editorial',
-    'nav.about': 'About',
+    'nav.ebooks': 'E-Books',
     'nav.searchPh': 'Search authors, titles...',
 
     // Storefront - Home
