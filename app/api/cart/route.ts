@@ -9,6 +9,7 @@ async function requireUser() {
 }
 
 function serializeCartItem(item: any) {
+  const isPack = item.book.bookType === "Pack";
   return {
     id: item.id,
     bookId: item.bookId,
@@ -18,6 +19,18 @@ function serializeCartItem(item: any) {
     quantity: item.quantity,
     imageUrl: item.book.image,
     stock: item.book.stock,
+    isPack,
+    packItems: isPack
+      ? (item.book.packItems ?? []).map((pi: any) => ({
+          id: pi.id,
+          quantity: pi.quantity,
+          book: {
+            title: pi.book.title,
+            author: pi.book.author,
+            cover: pi.book.image ?? null,
+          },
+        }))
+      : undefined,
   };
 }
 
@@ -27,12 +40,21 @@ export async function GET() {
 
   const items = await prisma.cartItem.findMany({
     where: { userId: user.id },
-    include: { book: true },
+    include: {
+      book: {
+        include: {
+          packItems: {
+            include: { book: true },
+          },
+        },
+      },
+    },
     orderBy: { createdAt: "desc" },
   });
 
   return NextResponse.json({ items: items.map(serializeCartItem) });
 }
+
 
 export async function POST(req: Request) {
   const user = await requireUser();
@@ -47,13 +69,15 @@ export async function POST(req: Request) {
   }
 
   const book = await prisma.book.findUnique({ where: { id: parsedBookId } });
-  if (!book || book.stock <= 0) {
+  if (!book || (book.bookType !== "EBook" && book.stock <= 0)) {
     return NextResponse.json({ error: "Book is unavailable" }, { status: 400 });
   }
 
+  const finalQty = book.bookType === "EBook" ? parsedQuantity : Math.min(parsedQuantity, book.stock);
+
   await prisma.cartItem.upsert({
     where: { userId_bookId: { userId: user.id, bookId: parsedBookId } },
-    create: { userId: user.id, bookId: parsedBookId, quantity: Math.min(parsedQuantity, book.stock) },
+    create: { userId: user.id, bookId: parsedBookId, quantity: finalQty },
     update: { quantity: { increment: parsedQuantity } },
   });
 
@@ -81,9 +105,11 @@ export async function PATCH(req: Request) {
 
   if (!item) return NextResponse.json({ error: "Cart item not found" }, { status: 404 });
 
+  const finalQty = item.book.bookType === "EBook" ? parsedQuantity : Math.min(parsedQuantity, item.book.stock);
+
   await prisma.cartItem.update({
     where: { id: parsedItemId },
-    data: { quantity: Math.min(parsedQuantity, item.book.stock) },
+    data: { quantity: finalQty },
   });
 
   return GET();

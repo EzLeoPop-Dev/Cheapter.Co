@@ -80,9 +80,51 @@ export async function POST(req: Request) {
   }
 
   const subtotal = cartItems.reduce((sum, item) => sum + Number(item.book.price) * item.quantity, 0);
-  const shippingFee = shippingMethod === "express" ? 12 : 0;
-  const taxAmount = Number((subtotal * 0.08).toFixed(2));
-  const totalAmount = Number((subtotal + shippingFee + taxAmount).toFixed(2));
+
+  // Validate coupon on backend
+  let discountAmount = 0;
+  let isFreeShipping = false;
+  let promotionId: number | null = null;
+  const couponCode = body.couponCode?.toUpperCase().trim();
+
+  if (couponCode) {
+    const promotion = await prisma.promotion.findUnique({
+      where: { code: couponCode },
+    });
+
+    if (promotion && promotion.status === "Active") {
+      const isExpired = promotion.endDate && new Date(promotion.endDate) < new Date();
+      const meetMinPurchase = subtotal >= Number(promotion.minPurchase);
+
+      if (!isExpired && meetMinPurchase) {
+        // Check per-user usage: 1 coupon per user ID
+        const alreadyUsed = await prisma.userCoupon.findFirst({
+          where: {
+            userId: session.user.id,
+            promotionId: promotion.id,
+            isUsed: true,
+          },
+        });
+
+        if (alreadyUsed) {
+          return NextResponse.json({ error: "คุณได้ใช้คูปองนี้ไปแล้ว (1 สิทธิ์ต่อ 1 บัญชี)" }, { status: 400 });
+        }
+
+        promotionId = promotion.id;
+        if (promotion.discountType === "percent") {
+          discountAmount = Number((subtotal * (Number(promotion.value) / 100)).toFixed(2));
+        } else if (promotion.discountType === "fixed") {
+          discountAmount = Number(promotion.value);
+        } else if (promotion.discountType === "freeship") {
+          isFreeShipping = true;
+        }
+      }
+    }
+  }
+
+  const shippingFee = isFreeShipping ? 0 : (shippingMethod === "express" ? 12 : 0);
+  const taxAmount = Number((Math.max(0, subtotal - discountAmount) * 0.08).toFixed(2));
+  const totalAmount = Number((Math.max(0, subtotal - discountAmount) + shippingFee + taxAmount).toFixed(2));
   const status: OrderStatus = "VERIFYING";
 
   const order = await prisma.$transaction(async (tx) => {
@@ -98,7 +140,7 @@ export async function POST(req: Request) {
         subtotal: new Prisma.Decimal(subtotal),
         shippingFee: new Prisma.Decimal(shippingFee),
         taxAmount: new Prisma.Decimal(taxAmount),
-        discountAmount: new Prisma.Decimal(0),
+        discountAmount: new Prisma.Decimal(discountAmount),
         totalAmount: new Prisma.Decimal(totalAmount),
         paymentTime: new Date(),
         items: {
@@ -111,9 +153,46 @@ export async function POST(req: Request) {
             bookId: item.bookId,
           })),
         },
+        ...(couponCode && promotionId ? {
+          coupons: {
+            create: {
+              couponCode,
+              discountAmt: new Prisma.Decimal(discountAmount),
+              promotionId,
+            }
+          }
+        } : {}),
       },
       include: { items: true },
     });
+
+    if (couponCode && promotionId) {
+      // Increment global usage count
+      await tx.promotion.update({
+        where: { id: promotionId },
+        data: { usedCount: { increment: 1 } }
+      });
+
+      // Mark as used for this user (upsert: create if not exists, update if exists)
+      await tx.userCoupon.upsert({
+        where: {
+          userId_promotionId: {
+            userId: session.user.id,
+            promotionId,
+          },
+        },
+        update: {
+          isUsed: true,
+          usedAt: new Date(),
+        },
+        create: {
+          userId: session.user.id,
+          promotionId,
+          isUsed: true,
+          usedAt: new Date(),
+        },
+      });
+    }
 
     await tx.cartItem.deleteMany({ where: { userId: session.user.id } });
     return created;

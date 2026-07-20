@@ -5,6 +5,7 @@ export type WishlistBook = {
   price: number;
   imageUrl: string | null;
   quantity: number;
+  bookType?: string;
 };
 
 export type WishlistApiResponse = {

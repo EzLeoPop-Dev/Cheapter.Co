@@ -124,7 +124,12 @@ export async function GET(request: NextRequest) {
                     }
                   ]
                 },
-                { stock: { gt: 0 } },
+                {
+                  OR: [
+                    { bookType: "EBook" },
+                    { stock: { gt: 0 } }
+                  ]
+                },
               ],
             },
           ],

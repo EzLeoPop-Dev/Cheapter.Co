@@ -6,6 +6,18 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+type PackBook = {
+  title: string;
+  author: string;
+  cover: string | null;
+};
+
+type PackBookItem = {
+  id: number;
+  quantity: number;
+  book: PackBook;
+};
+
 type CartItem = {
   id: number;
   bookId?: number;
@@ -14,6 +26,8 @@ type CartItem = {
   price: number;
   quantity: number;
   imageUrl: string | null;
+  isPack?: boolean;
+  packItems?: PackBookItem[];
 };
 
 const GUEST_CART_KEY = "cheapterCart";
@@ -121,55 +135,105 @@ export default function CartPage() {
               </div>
             ) : (
               cartItems.map(item => (
-                <div key={item.id} className="bg-white rounded-xl p-5 shadow-sm border border-stone-100 flex gap-6 relative">
-                  {/* Book Cover */}
-                  <div className="w-[80px] shrink-0 aspect-[2/3] bg-stone-100 rounded-sm overflow-hidden relative shadow-sm">
-                    <img src={item.imageUrl || "https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=400&auto=format&fit=crop"} alt={item.title} className="w-full h-full object-cover" />
-                    <div className="absolute left-0 top-0 bottom-0 w-[8%] bg-gradient-to-r from-black/40 to-transparent"></div>
-                  </div>
+                <div key={item.id} className={`bg-white rounded-2xl shadow-sm border overflow-hidden transition-all duration-200 ${item.isPack ? 'border-[#e8ddd3]' : 'border-stone-100'}`}>
+                  <div className="flex gap-0 relative">
 
-                  {/* Book Details */}
-                  <div className="flex flex-col flex-1 justify-between">
-                    <div>
-                      <h3 className="font-bold text-stone-800 text-base mb-1">{item.title}</h3>
-                      <p className="font-serif italic text-stone-500 text-sm">{item.author}</p>
+                    {/* Cover image */}
+                    <div className={`shrink-0 ${item.isPack ? 'w-[90px]' : 'w-[72px]'} self-stretch bg-stone-100 relative overflow-hidden`}>
+                      <img
+                        src={item.imageUrl || "https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=400&auto=format&fit=crop"}
+                        alt={item.title}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute left-0 top-0 bottom-0 w-2.5 bg-gradient-to-r from-black/30 to-transparent" />
+                      {item.isPack && (
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-[#8b5a45]/80 to-transparent py-1.5 px-1 text-center">
+                          <span className="text-[8px] font-black text-white uppercase tracking-widest leading-none">Pack</span>
+                        </div>
+                      )}
                     </div>
 
-                    <div className="flex items-end justify-between mt-4">
-                      {/* Price */}
-                      <p className="font-bold text-[#b46b45] text-sm">
-                        ฿ {item.price.toFixed(2)}
-                      </p>
+                    {/* Content */}
+                    <div className="flex-1 min-w-0 p-4 flex flex-col">
 
-                      {/* Controls */}
-                      <div className="flex items-center gap-4">
-                        {/* Quantity Selector */}
-                        <div className="flex items-center bg-[#faf8f4] border border-stone-200 rounded-md">
-                          <button
-                            onClick={() => updateQuantity(item.id, -1)}
-                            className="w-8 h-8 flex items-center justify-center text-stone-500 hover:text-stone-800 transition-colors"
-                          >
-                            <Minus size={12} strokeWidth={2.5} />
-                          </button>
-                          <span className="w-6 text-center text-xs font-bold text-stone-800">
-                            {item.quantity}
+                      {/* Header row */}
+                      <div className="mb-2">
+                        {item.isPack && (
+                          <span className="inline-flex items-center gap-1 bg-[#fdf5e6] text-[#b3884b] text-[8px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded-full mb-1.5">
+                            📦 Book Pack
                           </span>
-                          <button
-                            onClick={() => updateQuantity(item.id, 1)}
-                            className="w-8 h-8 flex items-center justify-center text-stone-500 hover:text-stone-800 transition-colors"
-                          >
-                            <Plus size={12} strokeWidth={2.5} />
-                          </button>
+                        )}
+                        <h3 className="font-bold text-stone-900 text-sm leading-snug">{item.title}</h3>
+                        {!item.isPack && (
+                          <p className="font-serif italic text-stone-400 text-[11px] mt-0.5">{item.author}</p>
+                        )}
+                      </div>
+
+                      {/* Pack books list */}
+                      {item.isPack && item.packItems && item.packItems.length > 0 && (
+                        <div className="mb-3 space-y-1">
+                          <p className="text-[8px] font-bold text-stone-400 uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                            <span className="w-2 h-px bg-stone-300 inline-block"></span>
+                            Includes {item.packItems.length} books
+                            <span className="w-2 h-px bg-stone-300 inline-block"></span>
+                          </p>
+                          {item.packItems.map((pi, idx) => (
+                            <div key={pi.id} className="flex items-center gap-2 bg-[#faf8f5] rounded-lg px-2.5 py-1.5 border border-stone-100">
+                              <span className="w-4 h-4 flex-shrink-0 rounded-full bg-[#e8ddd3] text-[#8b6347] text-[8px] font-bold flex items-center justify-center">
+                                {idx + 1}
+                              </span>
+                              <div className="w-5 h-7 flex-shrink-0 bg-stone-200 rounded overflow-hidden shadow-sm">
+                                {pi.book.cover && (
+                                  <img src={pi.book.cover} alt={pi.book.title} className="w-full h-full object-cover" />
+                                )}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[11px] font-bold text-stone-700 truncate leading-snug">{pi.book.title}</p>
+                                <p className="text-[9px] font-serif italic text-stone-400 truncate">{pi.book.author}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Footer: price + controls */}
+                      <div className="mt-auto flex items-center justify-between gap-3 flex-wrap">
+                        <div>
+                          <p className="font-bold text-[#b46b45] text-sm leading-none">
+                            ฿ {(item.price * item.quantity).toFixed(2)}
+                          </p>
+                          {item.quantity > 1 && (
+                            <p className="text-[10px] text-stone-400 mt-0.5">฿{item.price.toFixed(2)} × {item.quantity}</p>
+                          )}
                         </div>
 
-                        {/* Remove */}
-                        <button
-                          onClick={() => removeItem(item.id)}
-                          className="text-xs text-stone-400 hover:text-stone-800 underline underline-offset-2 transition-colors"
-                        >
-                          Remove
-                        </button>
+                        <div className="flex items-center gap-3">
+                          {/* Quantity stepper */}
+                          <div className="flex items-center bg-stone-50 border border-stone-200 rounded-lg overflow-hidden">
+                            <button
+                              onClick={() => updateQuantity(item.id, -1)}
+                              className="w-7 h-7 flex items-center justify-center text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors"
+                            >
+                              <Minus size={11} strokeWidth={2.5} />
+                            </button>
+                            <span className="w-6 text-center text-xs font-bold text-stone-800">{item.quantity}</span>
+                            <button
+                              onClick={() => updateQuantity(item.id, 1)}
+                              className="w-7 h-7 flex items-center justify-center text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors"
+                            >
+                              <Plus size={11} strokeWidth={2.5} />
+                            </button>
+                          </div>
+                          {/* Remove */}
+                          <button
+                            onClick={() => removeItem(item.id)}
+                            className="text-[11px] text-stone-400 hover:text-red-400 transition-colors font-medium"
+                          >
+                            Remove
+                          </button>
+                        </div>
                       </div>
+
                     </div>
                   </div>
                 </div>

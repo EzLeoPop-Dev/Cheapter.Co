@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { Heart, ShoppingCart, Trash2 } from 'lucide-react';
+import { Heart, ShoppingCart, Trash2, Check } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import {
   fetchWishlistFromApi,
   getWishlistBooks,
@@ -11,8 +12,11 @@ import {
 } from '@/src/lib/wishlist';
 
 export default function WishlistPage() {
+  const router = useRouter();
   const [wishlistItems, setWishlistItems] = useState<WishlistBook[]>([]);
   const [useApiMode, setUseApiMode] = useState(false);
+  const [addingId, setAddingId] = useState<number | null>(null);
+  const [addedId, setAddedId] = useState<number | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -65,6 +69,31 @@ export default function WishlistPage() {
     setWishlistItems(next);
   };
 
+  const handleAddToCart = async (bookId: number) => {
+    setAddingId(bookId);
+    try {
+      const res = await fetch('/api/cart', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ bookId, quantity: 1 }),
+      });
+      if (res.status === 401) {
+        router.push('/auth/signin');
+        return;
+      }
+      setAddedId(bookId);
+      setTimeout(() => {
+        setAddedId(null);
+        router.push('/cart');
+      }, 800);
+    } catch {
+      // silent
+    } finally {
+      setAddingId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -109,16 +138,26 @@ export default function WishlistPage() {
                 </span>
               </div>
               
-              <button 
-                disabled={item.quantity <= 0}
-                className={`w-full flex justify-center items-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  item.quantity > 0
-                    ? 'bg-[#bc876e] hover:bg-[#a8745d] text-white shadow-sm' 
-                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              <button
+                onClick={() => handleAddToCart(item.id)}
+                disabled={item.quantity <= 0 || addingId === item.id || addedId === item.id}
+                className={`w-full flex justify-center items-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                  item.quantity <= 0
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : addedId === item.id
+                    ? 'bg-[#7a8c6e] text-white'
+                    : 'bg-[#bc876e] hover:bg-[#a8745d] text-white shadow-sm active:scale-95'
                 }`}
               >
-                <ShoppingCart className="h-4 w-4" />
-                {item.quantity > 0 ? 'หยิบใส่ตะกร้า' : 'สินค้าหมด'}
+                {addedId === item.id ? (
+                  <><Check className="h-4 w-4" /> เพิ่มแล้ว!</>
+                ) : addingId === item.id ? (
+                  <><ShoppingCart className="h-4 w-4 animate-bounce" /> กำลังเพิ่ม...</>
+                ) : item.quantity > 0 ? (
+                  <><ShoppingCart className="h-4 w-4" /> หยิบใส่ตะกร้า</>
+                ) : (
+                  <>สินค้าหมด</>
+                )}
               </button>
             </div>
           </div>

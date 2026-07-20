@@ -1,15 +1,46 @@
 "use client";
 
 import { Navbar } from "../../components/Navbar";
-import { ShoppingCart } from "lucide-react";
+import { ShoppingCart, Check } from "lucide-react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useLanguage } from "../../context/LanguageContext";
 
 export default function BookPacksCatalogPage() {
   const { t } = useLanguage();
+  const router = useRouter();
   const [packs, setPacks] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [addingId, setAddingId] = useState<string | null>(null);
+  const [addedId, setAddedId] = useState<string | null>(null);
+
+  const addToCart = async (pack: any, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setAddingId(pack.id);
+    try {
+      const res = await fetch("/api/cart", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ bookId: Number(pack.id), quantity: 1 }),
+      });
+      if (res.status === 401) {
+        router.push("/auth/signin");
+        return;
+      }
+      setAddedId(pack.id);
+      setTimeout(() => {
+        setAddedId(null);
+        router.push("/cart");
+      }, 800);
+    } catch {
+      // silent
+    } finally {
+      setAddingId(null);
+    }
+  };
 
   useEffect(() => {
     const fetchPacks = async () => {
@@ -55,109 +86,128 @@ export default function BookPacksCatalogPage() {
     <div className="min-h-screen bg-[#faf8f4] flex flex-col font-sans text-stone-800">
       <Navbar />
 
-      <main className="flex-1 w-full max-w-7xl mx-auto px-8 py-12">
+      <main className="flex-1 w-full max-w-7xl mx-auto px-6 py-12">
         {/* Header */}
-        <div className="w-full flex flex-col sm:flex-row sm:items-end justify-between border-b border-stone-200 pb-6 mb-12">
+        <div className="w-full flex flex-col sm:flex-row sm:items-end justify-between border-b border-stone-200 pb-6 mb-10">
           <div>
-            <h1 className="text-4xl md:text-5xl font-bold text-stone-900 font-serif tracking-tight mb-4">{t('pack.title')}</h1>
-            <p className="text-lg text-stone-500 max-w-2xl">{t('pack.subtitle')}</p>
+            <h1 className="text-4xl md:text-5xl font-bold text-stone-900 font-serif tracking-tight mb-3">{t('pack.title')}</h1>
+            <p className="text-base text-stone-500 max-w-2xl">{t('pack.subtitle')}</p>
           </div>
           <span className="text-[10px] font-bold text-stone-400 tracking-widest uppercase mb-1 mt-4 sm:mt-0">
             {t('pack.showing1')} {packs.length} {t('pack.showing2')}
           </span>
         </div>
 
-        {/* Grid List */}
+        {/* Grid */}
         <div className="w-full">
           {isLoading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="animate-pulse flex flex-col items-center">
-                <div className="w-8 h-8 border-4 border-stone-200 border-t-[#a07455] rounded-full animate-spin mb-4"></div>
-                <div className="text-stone-500 font-medium tracking-wide">{t('pack.loading')}</div>
+            <div className="flex items-center justify-center py-24">
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-9 h-9 border-4 border-stone-200 border-t-[#a07455] rounded-full animate-spin"></div>
+                <span className="text-stone-500 text-sm font-medium tracking-wide">{t('pack.loading')}</span>
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
               {packs.map((pack) => (
-                <Link href={`/book-packs/${pack.id}`} key={pack.id} className="bg-white rounded-xl border border-stone-100 shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col sm:flex-row overflow-hidden hover:shadow-lg transition-all duration-300 transform hover:-translate-y-0.5">
-                  
-                  {/* Left Side (Image Area) */}
-                  <div className="relative w-full sm:w-[220px] bg-[#f7f5f0] p-5 flex flex-col items-center shrink-0 border-r border-stone-100 justify-center">
-                    {/* Badge */}
-                    {pack.badge && (
-                      <div className="absolute top-3 left-3 bg-[#a67b5b] text-white px-2.5 py-0.5 text-[10px] font-bold rounded shadow-sm z-10 uppercase tracking-wide">
-                        {pack.badge}
-                      </div>
-                    )}
-                    
-                    {/* Book Stack Image */}
-                    <div className="w-full aspect-[4/5] rounded-md overflow-hidden shadow-sm relative group">
-                      <img src={pack.image} alt={pack.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                <div
+                  key={pack.id}
+                  className="group bg-white rounded-2xl border border-stone-100 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col sm:flex-row"
+                >
+                  {/* ── Left: Cover Image ── */}
+                  <Link
+                    href={`/book-packs/${pack.id}`}
+                    className="relative sm:w-[180px] w-full shrink-0 bg-gradient-to-br from-[#f7f3ed] to-[#ede8df] flex items-center justify-center overflow-hidden"
+                  >
+                    <img
+                      src={pack.image}
+                      alt={pack.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      style={{ minHeight: '200px' }}
+                    />
+                    {/* spine shadow */}
+                    <div className="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-black/20 to-transparent pointer-events-none" />
+                    {/* Status badge */}
+                    <div className={`absolute top-2.5 right-2.5 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider rounded-full shadow-sm ${
+                      pack.badge === 'Available' ? 'bg-[#7a8c6e]/90 text-white' : 'bg-[#b37554]/90 text-white'
+                    }`}>
+                      {pack.badge}
                     </div>
-                    
-                    {/* Dots */}
-                    <div className="flex items-center gap-1.5 mt-4">
-                      <div className="w-4 h-1.5 bg-[#a67b5b] rounded-full opacity-90"></div>
-                      <div className="w-1.5 h-1.5 bg-stone-300 rounded-full"></div>
-                      <div className="w-1.5 h-1.5 bg-stone-300 rounded-full"></div>
-                    </div>
-                  </div>
+                  </Link>
 
-                  {/* Right Side (Content Area) */}
-                  <div className="flex-1 p-5 flex flex-col">
-                    {/* Title & Badge */}
-                    <div className="mb-2.5">
-                      <span className="inline-block bg-[#fdf5e6] text-[#b3884b] text-[9px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded-sm mb-2">
-                        {t('pack.badge')}
+                  {/* ── Right: Content ── */}
+                  <div className="flex-1 flex flex-col p-5 min-w-0">
+
+                    {/* Label + Title */}
+                    <div className="mb-3">
+                      <span className="inline-flex items-center gap-1 bg-[#fdf5e6] text-[#b3884b] text-[9px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded-full mb-2">
+                        📦 {t('pack.badge')}
                       </span>
-                      <h2 className="text-xl font-bold text-stone-900 leading-tight mb-0.5 font-serif">{pack.title}</h2>
-                      <p className="font-serif italic text-stone-400 text-xs">{t('pack.curator')} {pack.curator}</p>
+                      <h2 className="text-[17px] font-bold text-stone-900 leading-snug font-serif">{pack.title}</h2>
+                      <p className="text-stone-400 text-[11px] font-serif italic mt-0.5">{t('pack.curator')} {pack.curator}</p>
                     </div>
 
-                    <p className="text-stone-500 text-xs mb-4 leading-relaxed line-clamp-2">
-                      {pack.description}
-                    </p>
+                    {/* Description */}
+                    <p className="text-stone-500 text-[11px] leading-relaxed line-clamp-2 mb-3">{pack.description}</p>
 
-                    {/* Includes List */}
-                    <div className="mb-5 flex-1">
-                      <h4 className="text-[9px] font-bold text-stone-400 uppercase tracking-widest mb-2 flex items-center gap-1.5 border-b border-stone-100 pb-1.5">
+                    {/* Books in pack */}
+                    <div className="flex-1 mb-4">
+                      <p className="text-[9px] font-bold text-stone-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                        <span className="inline-block w-3 h-px bg-stone-300"></span>
                         {t('pack.includes1')} {pack.packItems.length} {t('pack.includes2')}
-                      </h4>
-                      <div className="pr-1 max-h-[110px] overflow-y-auto custom-scrollbar space-y-2 relative">
+                        <span className="inline-block w-3 h-px bg-stone-300"></span>
+                      </p>
+                      <div className="space-y-1.5 max-h-[130px] overflow-y-auto pr-0.5 custom-scrollbar">
                         {pack.packItems.map((item: any, idx: number) => (
-                          <div key={item.id} className="flex items-center gap-3 bg-white rounded-md border border-stone-100 p-2 hover:bg-stone-50 transition-colors">
-                            <div className="w-8 h-12 bg-stone-100 rounded-sm flex-shrink-0 overflow-hidden shadow-sm">
-                              {item.book.cover && <img src={item.book.cover} className="w-full h-full object-cover" alt={item.book.title} />}
+                          <div key={item.id} className="flex items-center gap-2.5 rounded-lg bg-stone-50 border border-stone-100 px-2.5 py-1.5 hover:bg-[#fdf8f4] transition-colors">
+                            <span className="w-4 h-4 flex-shrink-0 rounded-full bg-[#e8ddd3] text-[#8b6347] text-[9px] font-bold flex items-center justify-center">
+                              {idx + 1}
+                            </span>
+                            <div className="w-6 h-9 bg-stone-200 rounded flex-shrink-0 overflow-hidden shadow-sm">
+                              {item.book.cover && (
+                                <img src={item.book.cover} alt={item.book.title} className="w-full h-full object-cover" />
+                              )}
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-bold text-stone-800 text-xs leading-snug mb-0.5 truncate">{item.book.title}</p>
-                              <p className="font-serif italic text-stone-400 text-[10px] truncate">{item.book.author}</p>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[11px] font-bold text-stone-800 truncate leading-snug">{item.book.title}</p>
+                              <p className="text-[9px] font-serif italic text-stone-400 truncate">{item.book.author}</p>
                             </div>
                           </div>
                         ))}
                       </div>
                     </div>
 
-                    {/* Footer (Price & Action) */}
-                    <div className="mt-auto pt-4 border-t border-stone-100 flex items-center justify-between">
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-xl font-black text-[#b37554] tracking-tight">
+                    {/* Footer: price + button */}
+                    <div className="pt-3 border-t border-stone-100 flex items-center justify-between gap-3">
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-2xl font-black text-[#b37554] tracking-tight leading-none">
                           ฿{pack.price}
                         </span>
                         {pack.originalPrice && (
-                          <span className="text-xs font-bold text-stone-400 line-through">
-                            ฿{pack.originalPrice}
-                          </span>
+                          <span className="text-xs text-stone-400 line-through font-medium">฿{pack.originalPrice}</span>
                         )}
                       </div>
-                      <button className="bg-[#8b5a45] hover:bg-[#7a4e3c] text-white px-4 py-2 rounded-md font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 transform hover:scale-105 active:scale-95">
-                        <ShoppingCart className="w-3.5 h-3.5" />
-                        Add to Cart
+                      <button
+                        onClick={(e) => addToCart(pack, e)}
+                        disabled={addingId === pack.id || addedId === pack.id}
+                        className={`flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold text-xs shadow-sm transition-all duration-200 active:scale-95 ${
+                          addedId === pack.id
+                            ? 'bg-[#7a8c6e] text-white'
+                            : 'bg-[#8b5a45] hover:bg-[#7a4e3c] text-white hover:shadow-md'
+                        }`}
+                      >
+                        {addedId === pack.id ? (
+                          <><Check className="w-3.5 h-3.5" /> Added!</>
+                        ) : addingId === pack.id ? (
+                          <><ShoppingCart className="w-3.5 h-3.5 animate-bounce" /> Adding...</>
+                        ) : (
+                          <><ShoppingCart className="w-3.5 h-3.5" /> Add to Cart</>
+                        )}
                       </button>
                     </div>
-                  </div>
 
-                </Link>
+                  </div>
+                </div>
               ))}
             </div>
           )}
@@ -165,20 +215,10 @@ export default function BookPacksCatalogPage() {
       </main>
 
       <style jsx global>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: #f5f5f5;
-          border-radius: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #d4d4d4;
-          border-radius: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #a3a3a3;
-        }
+        .custom-scrollbar::-webkit-scrollbar { width: 3px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #d4c9be; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #b9a898; }
       `}</style>
     </div>
   );

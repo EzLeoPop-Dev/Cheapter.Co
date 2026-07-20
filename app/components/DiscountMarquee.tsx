@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Tag, X, CheckCircle2, ArrowRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import Link from "next/link";
 
 type Discount = {
   code: string;
@@ -89,9 +90,11 @@ export function DiscountMarquee() {
 
       {/* View All Button */}
       <div className="w-full flex justify-center mb-12 mt-4 relative z-10">
-        <button className="text-sm font-medium text-amber-900 border border-amber-900/30 px-6 py-2 rounded-full hover:bg-[#8b5a45] hover:border-[#8b5a45] hover:text-white transition-all duration-300 shadow-sm hover:shadow-lg hover:-translate-y-1 flex items-center gap-2">
-          ดูโค้ดส่วนลดทั้งหมด <ArrowRight size={16} />
-        </button>
+        <Link href="/coupons">
+          <button className="text-sm font-medium text-amber-900 border border-amber-900/30 px-6 py-2 rounded-full hover:bg-[#8b5a45] hover:border-[#8b5a45] hover:text-white transition-all duration-300 shadow-sm hover:shadow-lg hover:-translate-y-1 flex items-center gap-2">
+            ดูโค้ดส่วนลดทั้งหมด <ArrowRight size={16} />
+          </button>
+        </Link>
       </div>
 
       {/* Popup Modal */}

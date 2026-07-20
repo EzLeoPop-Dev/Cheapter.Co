@@ -27,7 +27,12 @@ export default async function Home() {
                 }
               ]
             },
-            { stock: { gt: 0 } },
+            {
+              OR: [
+                { bookType: "EBook" },
+                { stock: { gt: 0 } }
+              ]
+            },
           ],
         },
       ],

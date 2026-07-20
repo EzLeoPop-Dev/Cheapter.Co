@@ -1,7 +1,7 @@
 // @ts-nocheck
 "use client";
 import React, { useEffect, useMemo, useState } from 'react';
-import { Search, Filter, Printer, ExternalLink, PackageCheck, Eye, CreditCard, Box, Truck, CheckCircle2 } from 'lucide-react';
+import { Search, Filter, Printer, ExternalLink, PackageCheck, Eye, CreditCard, Box, Truck, CheckCircle2, Users } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 
 export default function AdminOrdersPage() {
@@ -105,7 +105,7 @@ export default function AdminOrdersPage() {
              <button onClick={() => setPrintOrder(order)} className="p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors border border-transparent hover:border-gray-200" title={t('order.action.print')}>
               <Printer className="w-4 h-4" />
             </button>
-            <button onClick={() => { setSelectedOrder(order); setTrackingInput(order.trackingNumber || ''); }} className="px-4 py-2 text-xs font-bold bg-gray-900 text-white hover:bg-gray-800 rounded-lg transition-colors shadow-sm flex items-center gap-2">
+            <button onClick={() => updateStatus(order.id, 'จัดส่งแล้ว')} className="px-4 py-2 text-xs font-bold bg-gray-900 text-white hover:bg-gray-800 rounded-lg transition-colors shadow-sm flex items-center gap-2">
               <PackageCheck className="w-4 h-4" />
               {t('order.action.ship')}
             </button>
@@ -280,7 +280,7 @@ export default function AdminOrdersPage() {
                     ) : (selectedOrder.status === 'รอจัดส่ง' || selectedOrder.status === 'รอแพ็ค') ? (
                       <div>
                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2">{t('order.detail.assignTracking')}</span>
-                        <input type="text" value={trackingInput} onChange={(e) => setTrackingInput(e.target.value)} placeholder="e.g. TH12345678" className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:border-gray-900 focus:bg-white transition-colors" />
+                        <input type="text" value={trackingInput} onChange={(e) => setTrackingInput(e.target.value)} placeholder="เช่น TH12345678 (ถ้ามี)" className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:border-gray-900 focus:bg-white transition-colors" />
                       </div>
                     ) : (
                       <span className="text-sm text-gray-400 italic">-</span>
@@ -302,9 +302,33 @@ export default function AdminOrdersPage() {
                         </div>
                         <span className="font-semibold text-gray-900">{item.name}</span>
                       </div>
-                      <span className="font-bold text-gray-900">฿{item.price * item.qty}</span>
+                      <span className="font-bold text-gray-900">฿{(item.price * item.qty).toLocaleString()}</span>
                     </div>
                   ))}
+                </div>
+
+                {/* Price Summary */}
+                <div className="mt-5 pt-4 border-t border-gray-100 space-y-2.5">
+                  <div className="flex justify-between text-sm text-gray-500">
+                    <span className="font-medium">ราคาสินค้า</span>
+                    <span className="font-semibold text-gray-700">฿{(selectedOrder.subtotal ?? selectedOrder.items.reduce((s, i) => s + i.price * i.qty, 0)).toLocaleString()}</span>
+                  </div>
+                  {selectedOrder.discount > 0 && (
+                    <div className="flex justify-between text-sm text-green-600">
+                      <span className="font-medium">ส่วนลด</span>
+                      <span className="font-semibold">-฿{Number(selectedOrder.discount).toLocaleString()}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-sm text-gray-500">
+                    <span className="font-medium">ค่าจัดส่ง</span>
+                    <span className="font-semibold text-gray-700">
+                      {selectedOrder.shippingFee > 0 ? `฿${Number(selectedOrder.shippingFee).toLocaleString()}` : 'ฟรี'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between pt-2.5 border-t border-gray-200">
+                    <span className="font-black text-gray-900 text-base">ยอดรวมทั้งสิ้น</span>
+                    <span className="font-black text-gray-900 text-base">฿{Number(selectedOrder.amount).toLocaleString()}</span>
+                  </div>
                 </div>
               </div>
 
@@ -341,11 +365,10 @@ export default function AdminOrdersPage() {
                 </button>
                 <button 
                   onClick={async () => {
-                    await updateStatus(selectedOrder.id, 'จัดส่งแล้ว', trackingInput);
+                    await updateStatus(selectedOrder.id, 'จัดส่งแล้ว', trackingInput || undefined);
                     setSelectedOrder(null);
                   }} 
-                  className="px-6 py-2.5 bg-gray-900 hover:bg-gray-800 text-white rounded-xl font-bold transition-colors text-sm shadow-md disabled:opacity-50 flex items-center gap-2"
-                  disabled={!trackingInput.trim()}
+                  className="px-6 py-2.5 bg-gray-900 hover:bg-gray-800 text-white rounded-xl font-bold transition-colors text-sm shadow-md flex items-center gap-2"
                 >
                   <PackageCheck className="w-4 h-4" />
                   {t('order.detail.confirmShip')}

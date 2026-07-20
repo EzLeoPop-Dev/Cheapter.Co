@@ -1,19 +1,36 @@
 // @ts-nocheck
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 export default function AdminPromotionsPage() {
-  const [promotions, setPromotions] = useState([
-    { id: 1, name: 'ส่วนลด 10% เดือนเกิด', code: 'HBD2026', discount: '10%', status: 'Active', end_date: '2026-12-31', type: 'discount' },
-    { id: 2, name: 'ส่งฟรี 500 บาทขึ้นไป', code: 'FREESHIP', discount: 'ค่าส่ง 0 บาท', status: 'Active', end_date: '', type: 'freeship' },
-    { id: 3, name: 'Flash Sale (หมดเขต)', code: 'FLASH50', discount: '50 บาท', status: 'Expired', end_date: '2026-07-10', type: 'discount' },
-  ]);
+  const [promotions, setPromotions] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchPromotions = async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch("/api/admin/promotions");
+      if (res.ok) {
+        const data = await res.json();
+        setPromotions(data);
+      }
+    } catch (err) {
+      console.error("Failed to load promotions:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPromotions();
+  }, []);
 
   const [showAddPromoModal, setShowAddPromoModal] = useState(false);
   const [editingPromoId, setEditingPromoId] = useState<any>(null);
   const [promoFormData, setPromoFormData] = useState({
-    name: '', code: '', discount: '', end_date: '', status: 'Active', type: 'discount'
+    name: '', code: '', discount: '', end_date: '', status: 'Active', type: 'percent', minPurchase: ''
   });
+
 
   return (
     <div className="space-y-6">
@@ -26,7 +43,7 @@ export default function AdminPromotionsPage() {
         <button 
           onClick={() => {
             setEditingPromoId(null);
-            setPromoFormData({ name: '', code: '', discount: '', end_date: '', status: 'Active' });
+            setPromoFormData({ name: '', code: '', discount: '', end_date: '', status: 'Active', type: 'percent', minPurchase: '' });
             setShowAddPromoModal(true);
           }}
           className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-colors text-sm shadow-md"
@@ -78,7 +95,7 @@ export default function AdminPromotionsPage() {
                         onClick={() => {
                           setEditingPromoId(promo.id);
                           setPromoFormData({
-                            name: promo.name, code: promo.code, discount: promo.discount, end_date: promo.end_date, status: promo.status, type: promo.type || 'discount'
+                            name: promo.name, code: promo.code, discount: promo.discount, end_date: promo.end_date, status: promo.status, type: promo.type || 'percent', minPurchase: String(promo.minPurchase ?? '')
                           });
                           setShowAddPromoModal(true);
                         }}
@@ -87,9 +104,16 @@ export default function AdminPromotionsPage() {
                         แก้ไข
                       </button>
                       <button 
-                        onClick={() => {
+                        onClick={async () => {
                           if (confirm('คุณต้องการลบโปรโมชั่นนี้ใช่หรือไม่?')) {
-                            setPromotions(promotions.filter(p => p.id !== promo.id));
+                            try {
+                              const res = await fetch(`/api/admin/promotions/${promo.id}`, { method: 'DELETE' });
+                              if (res.ok) {
+                                fetchPromotions();
+                              }
+                            } catch (err) {
+                              console.error(err);
+                            }
                           }
                         }}
                         className="px-3 py-1.5 text-xs font-bold bg-red-50 hover:bg-red-500 text-red-500 hover:text-white rounded-lg transition-colors"
@@ -144,7 +168,7 @@ export default function AdminPromotionsPage() {
                         onClick={() => {
                           setEditingPromoId(promo.id);
                           setPromoFormData({
-                            name: promo.name, code: promo.code, discount: promo.discount, end_date: promo.end_date, status: promo.status, type: promo.type || 'freeship'
+                            name: promo.name, code: promo.code, discount: promo.discount, end_date: promo.end_date, status: promo.status, type: promo.type || 'freeship', minPurchase: String(promo.minPurchase ?? '')
                           });
                           setShowAddPromoModal(true);
                         }}
@@ -153,9 +177,16 @@ export default function AdminPromotionsPage() {
                         แก้ไข
                       </button>
                       <button 
-                        onClick={() => {
+                        onClick={async () => {
                           if (confirm('คุณต้องการลบโปรโมชั่นนี้ใช่หรือไม่?')) {
-                            setPromotions(promotions.filter(p => p.id !== promo.id));
+                            try {
+                              const res = await fetch(`/api/admin/promotions/${promo.id}`, { method: 'DELETE' });
+                              if (res.ok) {
+                                fetchPromotions();
+                              }
+                            } catch (err) {
+                              console.error(err);
+                            }
                           }
                         }}
                         className="px-3 py-1.5 text-xs font-bold bg-red-50 hover:bg-red-500 text-red-500 hover:text-white rounded-lg transition-colors"
@@ -223,15 +254,15 @@ export default function AdminPromotionsPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-bold text-[#1A1A1A] mb-1">วันหมดอายุ</label>
+                  <label className="block text-sm font-bold text-[#1A1A1A] mb-1">ยอดซื้อขั้นต่ำ (฿)</label>
                   <input 
-                    type="date" 
-                    min={new Date().toISOString().split('T')[0]}
-                    value={promoFormData.end_date} 
-                    onChange={e => setPromoFormData({...promoFormData, end_date: e.target.value})} 
+                    type="number"
+                    min="0"
+                    value={promoFormData.minPurchase} 
+                    onChange={e => setPromoFormData({...promoFormData, minPurchase: e.target.value})} 
+                    placeholder="เช่น 300 (เว้นว่าง = ไม่มีขั้นต่ำ)"
                     className="w-full px-3 py-2 border border-[#e6e5e0] rounded-xl focus:outline-none focus:border-indigo-600 text-sm" 
                   />
-                  <p className="text-xs text-stone-500 mt-1">เว้นว่างไว้หากไม่มีกำหนด</p>
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-[#1A1A1A] mb-1">สถานะ</label>
@@ -246,16 +277,30 @@ export default function AdminPromotionsPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-bold text-[#1A1A1A] mb-1">หมวดหมู่คูปอง <span className="text-red-500">*</span></label>
-                <select 
-                  value={promoFormData.type} 
-                  onChange={e => setPromoFormData({...promoFormData, type: e.target.value})} 
-                  className="w-full px-3 py-2 border border-[#e6e5e0] rounded-xl focus:outline-none focus:border-indigo-600 text-sm bg-white"
-                >
-                  <option value="discount">🎟️ คูปองส่วนลดหนังสือ (เปอร์เซ็นต์ / เงินสด)</option>
-                  <option value="freeship">🚚 คูปองส่งฟรี</option>
-                </select>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-[#1A1A1A] mb-1">วันหมดอายุ</label>
+                  <input 
+                    type="date" 
+                    min={new Date().toISOString().split('T')[0]}
+                    value={promoFormData.end_date} 
+                    onChange={e => setPromoFormData({...promoFormData, end_date: e.target.value})} 
+                    className="w-full px-3 py-2 border border-[#e6e5e0] rounded-xl focus:outline-none focus:border-indigo-600 text-sm" 
+                  />
+                  <p className="text-xs text-stone-500 mt-1">เว้นว่างไว้หากไม่มีกำหนด</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-[#1A1A1A] mb-1">หมวดหมู่คูปอง <span className="text-red-500">*</span></label>
+                  <select 
+                    value={promoFormData.type} 
+                    onChange={e => setPromoFormData({...promoFormData, type: e.target.value})} 
+                    className="w-full px-3 py-2 border border-[#e6e5e0] rounded-xl focus:outline-none focus:border-indigo-600 text-sm bg-white"
+                  >
+                    <option value="percent">🎟️ ส่วนลดเปอร์เซ็นต์ (เช่น 10%)</option>
+                    <option value="fixed">💰 ส่วนลดเงินสด (เช่น 50 บาท)</option>
+                    <option value="freeship">🚚 คูปองส่งฟรี</option>
+                  </select>
+                </div>
               </div>
             </div>
             
@@ -267,13 +312,26 @@ export default function AdminPromotionsPage() {
                 ยกเลิก
               </button>
               <button 
-                onClick={() => {
+                onClick={async () => {
                   if (promoFormData.name && promoFormData.code && promoFormData.discount) {
-                    if (editingPromoId) {
-                      setPromotions(promotions.map(p => p.id === editingPromoId ? { ...p, ...promoFormData } : p));
-                    } else {
-                      const newId = promotions.length > 0 ? Math.max(...promotions.map(p => p.id)) + 1 : 1;
-                      setPromotions([...promotions, { id: newId, ...promoFormData }]);
+                    try {
+                      if (editingPromoId) {
+                        const res = await fetch(`/api/admin/promotions/${editingPromoId}`, {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify(promoFormData),
+                        });
+                        if (res.ok) fetchPromotions();
+                      } else {
+                        const res = await fetch('/api/admin/promotions', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify(promoFormData),
+                        });
+                        if (res.ok) fetchPromotions();
+                      }
+                    } catch (err) {
+                      console.error(err);
                     }
                     setShowAddPromoModal(false);
                   }

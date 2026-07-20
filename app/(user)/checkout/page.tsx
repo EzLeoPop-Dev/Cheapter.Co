@@ -38,6 +38,12 @@ export default function CheckoutPage() {
   const [newAddress, setNewAddress] = useState({ name: "", phone: "", streetAddress: "", city: "", zipCode: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Coupon states
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
+  const [couponError, setCouponError] = useState("");
+  const [couponSuccess, setCouponSuccess] = useState("");
+
   useEffect(() => {
     async function loadCheckout() {
       const [profileResponse, cartResponse] = await Promise.all([
@@ -65,10 +71,61 @@ export default function CheckoutPage() {
     loadCheckout();
   }, []);
 
+  const handleApplyCoupon = async () => {
+    setCouponError("");
+    setCouponSuccess("");
+    if (!couponCode.trim()) return;
+
+    try {
+      const res = await fetch(`/api/coupons?code=${encodeURIComponent(couponCode.trim())}`);
+      if (res.status === 444) {
+        setCouponError("ไม่พบรหัสคูปองนี้");
+        setAppliedCoupon(null);
+        return;
+      }
+      if (!res.ok) {
+        const data = await res.json();
+        setCouponError(data.message || "คูปองไม่สามารถใช้งานได้");
+        setAppliedCoupon(null);
+        return;
+      }
+
+      const coupon = await res.json();
+      const currentSubtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+      if (currentSubtotal < Number(coupon.minPurchase)) {
+        setCouponError(`ยอดซื้อขั้นต่ำไม่ถึง ฿${Number(coupon.minPurchase)}`);
+        setAppliedCoupon(null);
+        return;
+      }
+
+      setAppliedCoupon(coupon);
+      setCouponSuccess(`ประยุกต์ใช้คูปอง "${coupon.name}" สำเร็จ!`);
+    } catch (err) {
+      setCouponError("เกิดข้อผิดพลาดในการตรวจสอบคูปอง");
+      setAppliedCoupon(null);
+    }
+  };
+
   const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const shippingFee = deliveryMethod === "express" ? 12 : 0;
-  const taxes = Number((subtotal * 0.08).toFixed(2));
-  const total = subtotal + shippingFee + taxes;
+  
+  // Calculate discount based on coupon type
+  let discountAmount = 0;
+  let isFreeShipping = false;
+
+  if (appliedCoupon) {
+    if (appliedCoupon.discountType === "percent") {
+      discountAmount = Number((subtotal * (Number(appliedCoupon.value) / 100)).toFixed(2));
+    } else if (appliedCoupon.discountType === "fixed") {
+      discountAmount = Number(appliedCoupon.value);
+    } else if (appliedCoupon.discountType === "freeship") {
+      isFreeShipping = true;
+    }
+  }
+
+  const shippingFee = isFreeShipping ? 0 : (deliveryMethod === "express" ? 12 : 0);
+  const taxes = Number((Math.max(0, subtotal - discountAmount) * 0.08).toFixed(2));
+  const total = Math.max(0, subtotal - discountAmount + shippingFee + taxes);
 
   const handleCompletePurchase = async () => {
     try {
@@ -82,6 +139,8 @@ export default function CheckoutPage() {
           addressId: selectedAddressId === "new" ? undefined : selectedAddressId,
           address: selectedAddressId === "new" ? newAddress : undefined,
           items: cartItems,
+          couponCode: appliedCoupon?.code || undefined,
+          discountAmount: discountAmount || undefined,
         }),
       });
 
@@ -94,6 +153,8 @@ export default function CheckoutPage() {
             paymentMethod,
             address: selectedAddressId === "new" ? newAddress : addresses.find((address) => address.id === selectedAddressId),
             items: cartItems,
+            couponCode: appliedCoupon?.code || undefined,
+            discountAmount: discountAmount || undefined,
           }),
         });
         if (guestResponse.ok) {
@@ -362,14 +423,53 @@ export default function CheckoutPage() {
                 <span className="text-stone-500">Subtotal</span>
                 <span className="text-stone-800 font-medium">฿{subtotal.toFixed(2)}</span>
               </div>
+              
+              {/* Promo Discount Row */}
+              {discountAmount > 0 && (
+                <div className="flex items-center justify-between text-sm text-[#bc876e]">
+                  <span>ส่วนลดคูปอง ({appliedCoupon?.code})</span>
+                  <span className="font-bold">-฿{discountAmount.toFixed(2)}</span>
+                </div>
+              )}
+
               <div className="flex items-center justify-between text-sm">
                 <span className="text-stone-500">Shipping</span>
-                <span className="text-stone-800 font-medium">{deliveryMethod === "express" ? "฿12.00" : "Free"}</span>
+                <span className="text-stone-800 font-medium">
+                  {isFreeShipping ? (
+                    <span className="text-[#4a7c59] font-bold">Free (คูปองส่งฟรี)</span>
+                  ) : deliveryMethod === "express" ? (
+                    "฿12.00"
+                  ) : (
+                    "Free"
+                  )}
+                </span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-stone-500">Taxes</span>
                 <span className="text-stone-800 font-medium">฿{taxes.toFixed(2)}</span>
               </div>
+            </div>
+
+            {/* Coupon Code Input Field */}
+            <div className="border-t border-stone-200 pt-4 flex flex-col gap-2">
+              <span className="text-xs font-bold text-stone-600">Promo Code</span>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                  placeholder="กรอกโค้ดส่วนลด"
+                  className="flex-1 border border-stone-300 rounded px-3 py-2 text-xs focus:outline-none focus:border-[#8b5a45] uppercase font-mono bg-white"
+                />
+                <button
+                  onClick={handleApplyCoupon}
+                  className="bg-stone-850 hover:bg-stone-900 border border-stone-300 text-stone-800 hover:text-stone-900 font-bold px-4 py-2 rounded text-xs transition-colors bg-[#faf8f4]"
+                >
+                  Apply
+                </button>
+              </div>
+              {couponError && <span className="text-xs text-red-500 font-medium">{couponError}</span>}
+              {couponSuccess && <span className="text-xs text-green-600 font-medium">{couponSuccess}</span>}
             </div>
 
             <div className="w-full h-px bg-stone-200 my-1"></div>

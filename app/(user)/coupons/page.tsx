@@ -1,46 +1,12 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Ticket, CheckCircle2, Copy, Gift, Clock, ShoppingBag, Truck } from "lucide-react";
 import { Navbar } from "@/app/components/Navbar";
 
-// Mock Data
-const MOCK_COUPONS = [
-  {
-    id: 1,
-    title: "ส่วนลดพิเศษประจำเดือน",
-    code: "WELCOME20",
-    discount: "20%",
-    discountType: "percent",
-    minPurchase: 500,
-    endDate: "2026-07-31",
-    description: "ลดสูงสุด 200 บาท สำหรับลูกค้าใหม่",
-  },
-  {
-    id: 2,
-    title: "ลดทันทีเมื่อซื้อครบกำหนด",
-    code: "SAVE100",
-    discount: "฿100",
-    discountType: "fixed",
-    minPurchase: 1000,
-    endDate: "2026-08-15",
-    description: "ส่วนลด 100 บาท เมื่อซื้อครบ 1,000 บาท",
-  },
-  {
-    id: 3,
-    title: "ส่งฟรีทั่วประเทศ",
-    code: "FREESHIP",
-    discount: "Free",
-    discountType: "freeship",
-    minPurchase: 800,
-    endDate: "2026-12-31",
-    description: "ไม่มีค่าจัดส่งเมื่อยอดซื้อขั้นต่ำ 800 บาท",
-  }
-];
-
 // Helper Component for Coupon Card
-const CouponCard = ({ coupon, collected, copiedCode, handleCollect, index }: any) => {
+const CouponCard = ({ coupon, collected, copiedCode, handleCollect, index, isUsedByMe }: any) => {
   const isCollected = collected.includes(coupon.id);
   const isCopied = copiedCode === coupon.code;
   
@@ -94,9 +60,16 @@ const CouponCard = ({ coupon, collected, copiedCode, handleCollect, index }: any
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: index * 0.1, ease: "easeOut" }}
-      whileHover={{ y: -3, scale: 1.01 }}
-      className="relative bg-white rounded-xl shadow-sm hover:shadow-md border border-stone-100 flex flex-col sm:flex-row group transition-all duration-300 overflow-hidden"
+      whileHover={isUsedByMe ? {} : { y: -3, scale: 1.01 }}
+      className={`relative bg-white rounded-xl shadow-sm border flex flex-col sm:flex-row group transition-all duration-300 overflow-hidden ${isUsedByMe ? 'border-stone-200 opacity-60 grayscale-[40%]' : 'hover:shadow-md border-stone-100'}`}
     >
+      {/* Used overlay badge */}
+      {isUsedByMe && (
+        <div className="absolute top-3 right-3 z-20 flex items-center gap-1 bg-stone-700 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md">
+          <CheckCircle2 size={11} />
+          ใช้แล้ว
+        </div>
+      )}
       {/* Left Side (Ticket Graphic) */}
       <div className={`sm:w-1/3 p-5 flex flex-col justify-center items-center text-center ${theme.leftBg} relative border-b sm:border-b-0 sm:border-r border-dashed ${theme.borderDashed}`}>
         <div className={`absolute inset-1.5 border ${theme.innerBorder} rounded-lg pointer-events-none`}></div>
@@ -132,7 +105,7 @@ const CouponCard = ({ coupon, collected, copiedCode, handleCollect, index }: any
               <div className={`p-1 rounded ${theme.leftBg} ${theme.mainText}`}>
                 <Clock size={12} />
               </div>
-              <span>หมดเขต {new Date(coupon.endDate).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+              <span>หมดเขต {coupon.endDate ? new Date(coupon.endDate).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' }) : 'ไม่มีกำหนด'}</span>
             </div>
           </div>
         </div>
@@ -144,10 +117,12 @@ const CouponCard = ({ coupon, collected, copiedCode, handleCollect, index }: any
           </div>
           
           <button
-            onClick={() => handleCollect(coupon.id, coupon.code)}
-            disabled={isCollected && !isCopied}
+            onClick={() => !isUsedByMe && handleCollect(coupon.id, coupon.code)}
+            disabled={(isCollected && !isCopied) || isUsedByMe}
             className={`relative overflow-hidden px-4 py-2 rounded-lg font-bold text-xs transition-all duration-300 flex items-center justify-center gap-1.5 min-w-[120px] shadow-sm ${
-              isCopied
+              isUsedByMe
+                ? "bg-stone-100 text-stone-400 border border-stone-200 cursor-not-allowed"
+                : isCopied
                 ? "bg-green-600 text-white border border-green-600"
                 : isCollected
                 ? `bg-white border-2 ${theme.collectedBorder} ${theme.collectedText} cursor-default`
@@ -155,7 +130,11 @@ const CouponCard = ({ coupon, collected, copiedCode, handleCollect, index }: any
             }`}
           >
             <AnimatePresence mode="wait">
-              {isCopied ? (
+              {isUsedByMe ? (
+                <motion.div key="used" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex items-center gap-1.5">
+                  <CheckCircle2 size={14} /><span>ใช้ไปแล้ว</span>
+                </motion.div>
+              ) : isCopied ? (
                 <motion.div key="copied" initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} className="flex items-center gap-1.5">
                   <CheckCircle2 size={14} /><span>คัดลอกแล้ว</span>
                 </motion.div>
@@ -177,8 +156,55 @@ const CouponCard = ({ coupon, collected, copiedCode, handleCollect, index }: any
 };
 
 export default function CouponsPage() {
+  const [coupons, setCoupons] = useState<any[]>([]);
+  const [usedIds, setUsedIds] = useState<number[]>([]);
   const [collected, setCollected] = useState<number[]>([]);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadCoupons() {
+      try {
+        const res = await fetch("/api/coupons");
+        if (res.ok) {
+          const data = await res.json();
+          // API now returns { promotions, usedIds }
+          const promotionList = data.promotions ?? data;
+          const usedIdList: number[] = data.usedIds ?? [];
+
+          const formatted = promotionList.map((p: any) => {
+            let discountVal = "";
+            if (p.discountType === "percent") {
+              discountVal = `${Number(p.value)}%`;
+            } else if (p.discountType === "fixed") {
+              discountVal = `฿${Number(p.value)}`;
+            } else {
+              discountVal = "Free";
+            }
+
+            return {
+              id: p.id,
+              title: p.name,
+              code: p.code,
+              discount: discountVal,
+              discountType: p.discountType,
+              minPurchase: Number(p.minPurchase),
+              endDate: p.endDate || null,
+              description: p.discountType === "percent"
+                ? `ลดสูงสุด ${Number(p.value)}% สำหรับทุกรายการสั่งซื้อ`
+                : p.discountType === "fixed"
+                ? `ส่วนลดมูลค่า ${Number(p.value)} บาท`
+                : `ไม่มีค่าจัดส่งเมื่อยอดซื้อขั้นต่ำ ฿${Number(p.minPurchase)} บาท`,
+            };
+          });
+          setCoupons(formatted);
+          setUsedIds(usedIdList);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    loadCoupons();
+  }, []);
 
   const handleCollect = (id: number, code: string) => {
     if (!collected.includes(id)) {
@@ -191,8 +217,8 @@ export default function CouponsPage() {
     setTimeout(() => setCopiedCode(null), 2000);
   };
 
-  const discountCoupons = useMemo(() => MOCK_COUPONS.filter(c => c.discountType === 'percent' || c.discountType === 'fixed'), []);
-  const shippingCoupons = useMemo(() => MOCK_COUPONS.filter(c => c.discountType === 'freeship'), []);
+  const discountCoupons = useMemo(() => coupons.filter(c => c.discountType === 'percent' || c.discountType === 'fixed'), [coupons]);
+  const shippingCoupons = useMemo(() => coupons.filter(c => c.discountType === 'freeship'), [coupons]);
 
   return (
     <main className="min-h-screen bg-[#faf9f6] pb-24 font-sans">
@@ -242,7 +268,8 @@ export default function CouponsPage() {
                     collected={collected} 
                     copiedCode={copiedCode} 
                     handleCollect={handleCollect} 
-                    index={index} 
+                    index={index}
+                    isUsedByMe={usedIds.includes(coupon.id)}
                   />
                 ))}
               </AnimatePresence>
@@ -268,7 +295,8 @@ export default function CouponsPage() {
                     collected={collected} 
                     copiedCode={copiedCode} 
                     handleCollect={handleCollect} 
-                    index={index} 
+                    index={index}
+                    isUsedByMe={usedIds.includes(coupon.id)}
                   />
                 ))}
               </AnimatePresence>

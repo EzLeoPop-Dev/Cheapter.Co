@@ -94,6 +94,7 @@ async function listWishlist(userId: string): Promise<AuthenticatedWishlistRespon
           price: true,
           image: true,
           stock: true,
+          bookType: true,
         },
       },
     },
@@ -106,6 +107,7 @@ async function listWishlist(userId: string): Promise<AuthenticatedWishlistRespon
     price: Number(row.book.price),
     imageUrl: row.book.image,
     quantity: row.book.stock,
+    bookType: row.book.bookType,
   }));
 
   return {
