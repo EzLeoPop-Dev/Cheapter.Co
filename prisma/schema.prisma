@@ -207,17 +207,21 @@ model Review {
   id        Int      @id @default(autoincrement())
   rating    Int 
   comment   String   @db.Text
+  status    String   @default("visible")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  userId String?  
-  bookId Int
+  userId  String?  
+  bookId  Int
+  orderId String?
 
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
-  book Book  @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  user  User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  book  Book   @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  order Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
 
   @@index([bookId])
   @@index([userId])
+  @@index([orderId])
   @@map("reviews")
 }
 
@@ -334,6 +338,7 @@ model Order {
   items           OrderItem[]
   coupons         OrderCoupon[]
   tickets         Ticket[]
+  reviews         Review[]
 
   @@index([userId])
   @@index([status])
