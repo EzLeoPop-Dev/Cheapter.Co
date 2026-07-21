@@ -44,9 +44,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Cart is empty" }, { status: 400 });
   }
 
-  if (!address?.name || !address?.streetAddress || !address?.city || !address?.zipCode) {
+  const isDigitalOnly = items.length > 0 && items.every((item: any) => item.bookType === "EBook");
+
+  if (!isDigitalOnly && (!address?.name || !address?.streetAddress || !address?.city || !address?.zipCode)) {
     return NextResponse.json({ error: "Shipping address is required" }, { status: 400 });
   }
+
+  const finalAddress = isDigitalOnly
+    ? { name: "Guest Customer", phone: "", streetAddress: "Digital Delivery", city: "", zipCode: "" }
+    : address;
 
   const shippingMethod: ShippingMethod = body.shippingMethod === "express" ? "express" : "standard";
   const paymentMethod = paymentMap[String(body.paymentMethod)] ?? "promptpay";
@@ -93,21 +99,34 @@ export async function POST(req: Request) {
     }
   }
 
-  const shippingFee = isFreeShipping ? 0 : (shippingMethod === "express" ? 12 : 0);
+  const shippingFee = (isFreeShipping || isDigitalOnly) ? 0 : (shippingMethod === "express" ? 12 : 0);
   const taxAmount = Number((Math.max(0, subtotal - discountAmount) * 0.08).toFixed(2));
   const totalAmount = Number((Math.max(0, subtotal - discountAmount) + shippingFee + taxAmount).toFixed(2));
   const status: OrderStatus = "VERIFYING";
 
   const order = await prisma.$transaction(async (tx) => {
+    const today = new Date();
+    const datePrefix = today.toISOString().slice(0, 10).replace(/-/g, ""); // e.g., 20260721
+    const startOfDay = new Date(today.setUTCHours(0, 0, 0, 0));
+    const endOfDay = new Date(today.setUTCHours(23, 59, 59, 999));
+    
+    const countToday = await tx.order.count({
+      where: {
+        createdAt: { gte: startOfDay, lte: endOfDay }
+      }
+    });
+    const customOrderId = `ORD-${datePrefix}-${String(countToday + 1).padStart(4, '0')}`;
+
     const created = await tx.order.create({
       data: {
+        id: customOrderId,
         userId: session?.user?.id ?? null,
         status,
-        shippingMethod,
+        shippingMethod: isDigitalOnly ? "digital" : shippingMethod,
         paymentMethod,
-        recipientName: address.name,
-        recipientPhone: address.phone ?? null,
-        shippingAddress: `${address.streetAddress}\n${address.city}, ${address.zipCode}`,
+        recipientName: finalAddress.name,
+        recipientPhone: finalAddress.phone ?? null,
+        shippingAddress: isDigitalOnly ? "Digital Delivery" : `${finalAddress.streetAddress}\n${finalAddress.city}, ${finalAddress.zipCode}`,
         subtotal: new Prisma.Decimal(subtotal),
         shippingFee: new Prisma.Decimal(shippingFee),
         taxAmount: new Prisma.Decimal(taxAmount),

@@ -36,6 +36,7 @@ function serializeOrder(order: any) {
       quantity: item.quantity,
       unitPrice: Number(item.unitPrice),
     })),
+    hasActiveTicket: order.tickets?.some((t: any) => t.status !== 'CLOSED') || false
   };
 }
 
@@ -45,7 +46,7 @@ export async function GET() {
 
   const orders = await prisma.order.findMany({
     where: { userId: session.user.id },
-    include: { items: true },
+    include: { items: true, tickets: true },
     orderBy: { createdAt: "desc" },
   });
 
@@ -70,14 +71,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Cart is empty" }, { status: 400 });
   }
 
+  const isDigitalOnly = cartItems.length > 0 && cartItems.every(item => item.book.bookType === "EBook");
+
   const selectedAddress = body.addressId
     ? await prisma.address.findFirst({ where: { id: Number(body.addressId), userId: session.user.id } })
     : null;
 
   const address = selectedAddress ?? body.address;
-  if (!address?.name || !address?.streetAddress || !address?.city || !address?.zipCode) {
+  if (!isDigitalOnly && (!address?.name || !address?.streetAddress || !address?.city || !address?.zipCode)) {
     return NextResponse.json({ error: "Shipping address is required" }, { status: 400 });
   }
+
+  const finalAddress = isDigitalOnly
+    ? { name: session.user.name || "Customer", phone: "", streetAddress: "Digital Delivery", city: "", zipCode: "" }
+    : address;
 
   const subtotal = cartItems.reduce((sum, item) => sum + Number(item.book.price) * item.quantity, 0);
 
@@ -133,21 +140,34 @@ export async function POST(req: Request) {
     }
   }
 
-  const shippingFee = isFreeShipping ? 0 : (shippingMethod === "express" ? 12 : 0);
+  const shippingFee = (isFreeShipping || isDigitalOnly) ? 0 : (shippingMethod === "express" ? 12 : 0);
   const taxAmount = Number((Math.max(0, subtotal - discountAmount) * 0.08).toFixed(2));
   const totalAmount = Number((Math.max(0, subtotal - discountAmount) + shippingFee + taxAmount).toFixed(2));
   const status: OrderStatus = "VERIFYING";
 
   const order = await prisma.$transaction(async (tx) => {
+    const today = new Date();
+    const datePrefix = today.toISOString().slice(0, 10).replace(/-/g, ""); // e.g., 20260721
+    const startOfDay = new Date(today.setUTCHours(0, 0, 0, 0));
+    const endOfDay = new Date(today.setUTCHours(23, 59, 59, 999));
+    
+    const countToday = await tx.order.count({
+      where: {
+        createdAt: { gte: startOfDay, lte: endOfDay }
+      }
+    });
+    const customOrderId = `ORD-${datePrefix}-${String(countToday + 1).padStart(4, '0')}`;
+
     const created = await tx.order.create({
       data: {
+        id: customOrderId,
         userId: session.user.id,
         status,
-        shippingMethod,
+        shippingMethod: isDigitalOnly ? "digital" : shippingMethod,
         paymentMethod,
-        recipientName: address.name,
-        recipientPhone: address.phone ?? null,
-        shippingAddress: `${address.streetAddress}\n${address.city}, ${address.zipCode}`,
+        recipientName: finalAddress.name,
+        recipientPhone: finalAddress.phone ?? null,
+        shippingAddress: isDigitalOnly ? "Digital Delivery" : `${finalAddress.streetAddress}\n${finalAddress.city}, ${finalAddress.zipCode}`,
         subtotal: new Prisma.Decimal(subtotal),
         shippingFee: new Prisma.Decimal(shippingFee),
         taxAmount: new Prisma.Decimal(taxAmount),

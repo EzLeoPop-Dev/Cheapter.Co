@@ -19,6 +19,7 @@ function serializeCartItem(item: any) {
     quantity: item.quantity,
     imageUrl: item.book.image,
     stock: item.book.stock,
+    bookType: item.book.bookType,
     isPack,
     packItems: isPack
       ? (item.book.packItems ?? []).map((pi: any) => ({

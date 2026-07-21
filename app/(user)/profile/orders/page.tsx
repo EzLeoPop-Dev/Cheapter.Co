@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { Package, Search, Calendar, ChevronRight, FileText, LogIn } from "lucide-react";
+import { Package, Search, Calendar, ChevronRight, FileText, LogIn, Star, X, MessageSquareHeart, AlertCircle } from "lucide-react";
 import Link from "next/link";
 
 const TABS = ["ทั้งหมด", "PENDING", "VERIFYING", "PREPARING", "SHIPPING", "COMPLETED", "CANCELLED", "REFUNDED"];
@@ -9,8 +9,8 @@ const TABS = ["ทั้งหมด", "PENDING", "VERIFYING", "PREPARING", "SHI
 const STATUS_LABELS: Record<string, string> = {
   PENDING: "รอชำระเงิน",
   VERIFYING: "ตรวจสอบชำระเงิน",
-  PREPARING: "เตรียมการจัดส่ง",
-  SHIPPING: "อยู่ระหว่างการจัดส่ง",
+  PREPARING: "กำลังแพ็คสินค้า",
+  SHIPPING: "จัดส่งบริษัทขนส่ง",
   COMPLETED: "สำเร็จ",
   CANCELLED: "ถูกยกเลิก",
   REFUNDED: "คืนเงิน/คืนสินค้า",
@@ -23,6 +23,7 @@ function mapOrder(order: any) {
     total: Number(order.totalAmount).toFixed(2),
     status: order.status,
     trackingNumber: order.trackingNumber,
+    hasActiveTicket: order.hasActiveTicket,
     statusColor:
       order.status === "COMPLETED" ? "text-green-600 bg-green-50 border-green-200" :
       order.status === "SHIPPING" ? "text-blue-600 bg-blue-50 border-blue-200" :
@@ -30,6 +31,7 @@ function mapOrder(order: any) {
       order.status === "REFUNDED" ? "text-purple-600 bg-purple-50 border-purple-200" :
       "text-amber-600 bg-amber-50 border-amber-200",
     items: (order.items || []).map((item: any) => ({
+      bookId: item.bookId,
       title: item.title,
       qty: item.quantity,
       price: (Number(item.unitPrice) * Number(item.quantity)).toFixed(2),
@@ -43,6 +45,52 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState(false);
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [selectedReviewItem, setSelectedReviewItem] = useState<{bookId: number, title: string} | null>(null);
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewHoverRating, setReviewHoverRating] = useState(0);
+  const [reviewComment, setReviewComment] = useState("");
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+
+  const openReviewModal = (bookId: number, title: string) => {
+    setSelectedReviewItem({bookId, title});
+    setReviewRating(0);
+    setReviewHoverRating(0);
+    setReviewComment("");
+    setReviewModalOpen(true);
+  };
+
+  const submitReview = async () => {
+    if (!selectedReviewItem || reviewRating === 0) {
+      alert("กรุณาให้คะแนนดาว");
+      return;
+    }
+    
+    setIsSubmittingReview(true);
+    try {
+      const res = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookId: selectedReviewItem.bookId,
+          rating: reviewRating,
+          comment: reviewComment
+        })
+      });
+      
+      const data = await res.json();
+      if (res.ok) {
+        alert("ขอบคุณสำหรับรีวิวของคุณ!");
+        setReviewModalOpen(false);
+      } else {
+        alert(data.error || "ไม่สามารถส่งรีวิวได้");
+      }
+    } catch (err) {
+      alert("เกิดข้อผิดพลาดในการเชื่อมต่อ");
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  };
 
   useEffect(() => {
     async function loadOrders() {
@@ -176,10 +224,20 @@ export default function OrdersPage() {
                   </h4>
                   <ul className="space-y-2">
                     {order.items.map((item: any, idx: number) => (
-                      <li key={idx} className="flex justify-between text-sm">
-                        <span className="text-gray-700">
-                          {item.title} <span className="text-gray-400">x{item.qty}</span>
-                        </span>
+                      <li key={idx} className="flex justify-between items-center text-sm py-1 border-b border-gray-100 last:border-0 last:pb-0">
+                        <div className="flex flex-col">
+                          <span className="text-gray-700 font-medium">
+                            {item.title} <span className="text-gray-400 font-normal ml-1">x{item.qty}</span>
+                          </span>
+                          {order.status === "COMPLETED" && (
+                            <button 
+                              onClick={() => openReviewModal(item.bookId, item.title)}
+                              className="text-xs text-[#b46b45] hover:text-[#8b5a45] mt-1 font-semibold flex items-center gap-1 w-fit transition-colors"
+                            >
+                              <MessageSquareHeart size={12} /> เขียนรีวิว
+                            </button>
+                          )}
+                        </div>
                         <span className="font-medium text-gray-600">฿{item.price}</span>
                       </li>
                     ))}
@@ -187,9 +245,23 @@ export default function OrdersPage() {
                 </div>
 
                 <div className="mt-4 flex justify-end items-center gap-4">
+                  {order.hasActiveTicket ? (
+                    <span className="flex items-center text-sm font-medium text-gray-500 bg-gray-100 px-3 py-1.5 rounded-lg cursor-not-allowed">
+                      <AlertCircle className="h-4 w-4 mr-1.5" />
+                      แจ้งปัญหาแล้ว
+                    </span>
+                  ) : (
+                    <Link
+                      href={`/profile/support?orderId=${order.id}`}
+                      className="flex items-center text-sm font-medium text-red-600 hover:text-red-800 transition-colors bg-red-50 px-3 py-1.5 rounded-lg"
+                    >
+                      <AlertCircle className="h-4 w-4 mr-1.5" />
+                      แจ้งปัญหาคำสั่งซื้อ
+                    </Link>
+                  )}
                   <Link
                     href="/tracking"
-                    className="flex items-center text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+                    className="flex items-center text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors bg-gray-50 px-3 py-1.5 rounded-lg"
                   >
                     ดูรายละเอียดการจัดส่ง <ChevronRight className="h-4 w-4 ml-1" />
                   </Link>
@@ -211,6 +283,71 @@ export default function OrdersPage() {
           </div>
         )}
       </div>
+
+      {/* Review Modal */}
+      {reviewModalOpen && selectedReviewItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col p-6 text-center animate-in fade-in zoom-in duration-200">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-gray-900 font-serif">เขียนรีวิว</h3>
+              <button 
+                onClick={() => setReviewModalOpen(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            
+            <p className="text-sm text-gray-500 mb-2">ให้คะแนนสินค้า</p>
+            <p className="text-base font-bold text-gray-800 mb-6">{selectedReviewItem.title}</p>
+            
+            <div className="flex justify-center gap-2 mb-8">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  type="button"
+                  onClick={() => setReviewRating(star)}
+                  onMouseEnter={() => setReviewHoverRating(star)}
+                  onMouseLeave={() => setReviewHoverRating(0)}
+                  className="transition-transform hover:scale-110 focus:outline-none"
+                >
+                  <Star 
+                    size={36} 
+                    className={`transition-colors ${(reviewHoverRating || reviewRating) >= star ? "fill-[#b46b45] text-[#b46b45]" : "fill-gray-100 text-gray-200"}`} 
+                  />
+                </button>
+              ))}
+            </div>
+
+            <div className="text-left mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">รายละเอียดรีวิว (ไม่บังคับ)</label>
+              <textarea
+                value={reviewComment}
+                onChange={(e) => setReviewComment(e.target.value)}
+                placeholder="เล่าประสบการณ์ของคุณที่มีต่อหนังสือเล่มนี้..."
+                rows={4}
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#b46b45]/30 focus:border-[#b46b45] transition-all resize-none"
+              />
+            </div>
+
+            <div className="flex gap-3 mt-2">
+              <button 
+                onClick={() => setReviewModalOpen(false)}
+                className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold transition-colors text-sm"
+              >
+                ยกเลิก
+              </button>
+              <button 
+                onClick={submitReview}
+                disabled={isSubmittingReview || reviewRating === 0}
+                className="flex-1 py-3 bg-[#b46b45] hover:bg-[#8b5a45] text-white rounded-xl font-bold transition-all text-sm disabled:opacity-50 shadow-md shadow-[#b46b45]/20"
+              >
+                {isSubmittingReview ? "กำลังส่ง..." : "ส่งรีวิว"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
