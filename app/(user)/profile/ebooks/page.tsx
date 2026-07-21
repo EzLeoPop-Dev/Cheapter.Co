@@ -28,7 +28,7 @@ export default async function EbooksPage() {
 
   const progressMap = new Map(progressItems.map((p: any) => [p.bookId, p]));
 
-  const ebooks = libraryItems.map((item) => {
+  const ebooks = libraryItems.map((item: any) => {
     const progress = progressMap.get(item.bookId);
     const lastReadStr = progress?.lastReadAt 
       ? new Date(progress.lastReadAt).toLocaleDateString("th-TH", { year: "numeric", month: "short", day: "numeric" })
