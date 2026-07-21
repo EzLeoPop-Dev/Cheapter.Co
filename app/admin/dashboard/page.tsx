@@ -41,7 +41,7 @@ export default function AdminDashboardPage() {
     if (!data.topProducts || data.topProducts.length === 0) return alert("No data to export");
     
     const headers = ["Product Name", "Price (THB)", "Sold Quantity"];
-    const rows = data.topProducts.map(p => `"${p.name}",${p.price},${p.sold}`);
+    const rows = data.topProducts.map((p: any) => `"${p.name}",${p.price},${p.sold}`);
     const csvContent = [headers.join(","), ...rows].join("\n");
     
     const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" }); 
@@ -166,7 +166,7 @@ export default function AdminDashboardPage() {
                   <Tooltip 
                     cursor={{ fill: '#f9fafb' }}
                     contentStyle={{ borderRadius: '12px', border: '1px solid #f3f4f6', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                    formatter={(value: number) => [`฿${value.toLocaleString()}`, 'ยอดขาย']}
+                    formatter={(value: any) => [`฿${Number(value).toLocaleString()}`, 'ยอดขาย']}
                   />
                   <Bar dataKey="revenue" radius={[6, 6, 6, 6]}>
                     {chartData.map((entry: any, index: number) => (

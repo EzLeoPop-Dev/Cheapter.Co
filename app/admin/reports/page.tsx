@@ -226,7 +226,7 @@ export default function AdminReportsPage() {
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                       <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} dy={10} tickFormatter={(val) => { if (timeGrouping === 'month') { return new Date(val + '-01').toLocaleDateString('th-TH', { month: 'short', year: '2-digit' }); } return `${new Date(val).getDate()}/${new Date(val).getMonth()+1}`; }}/>
                       <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6b7280' }} />
-                      <RechartsTooltip contentStyle={{ borderRadius: '12px', border: '1px solid #f3f4f6' }} labelFormatter={(val) => { if (timeGrouping === 'month') return new Date(val as string + '-01').toLocaleDateString('th-TH', { month: 'long', year: 'numeric' }); return new Date(val as string).toLocaleDateString('th-TH', { dateStyle: 'long' }); }} formatter={(value: number) => [`฿${value.toLocaleString()}`, 'ยอดขายสุทธิ']} />
+                      <RechartsTooltip contentStyle={{ borderRadius: '12px', border: '1px solid #f3f4f6' }} labelFormatter={(val) => { if (timeGrouping === 'month') return new Date(val as string + '-01').toLocaleDateString('th-TH', { month: 'long', year: 'numeric' }); return new Date(val as string).toLocaleDateString('th-TH', { dateStyle: 'long' }); }} formatter={(value: any) => [`฿${Number(value).toLocaleString()}`, 'ยอดขายสุทธิ']} />
                       <Area type="monotone" dataKey="revenue" stroke="#111827" strokeWidth={3} fillOpacity={1} fill="url(#colorNet)" />
                     </AreaChart>
                   </ResponsiveContainer>
@@ -249,7 +249,7 @@ export default function AdminReportsPage() {
                       <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f3f4f6" />
                       <XAxis type="number" hide />
                       <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#374151', fontWeight: 500 }} width={80} />
-                      <RechartsTooltip cursor={{ fill: '#f9fafb' }} contentStyle={{ borderRadius: '12px', border: '1px solid #f3f4f6' }} formatter={(value: number) => [`฿${value.toLocaleString()}`, 'รายได้']} />
+                      <RechartsTooltip cursor={{ fill: '#f9fafb' }} contentStyle={{ borderRadius: '12px', border: '1px solid #f3f4f6' }} formatter={(value: any) => [`฿${Number(value).toLocaleString()}`, 'รายได้']} />
                       <Bar dataKey="revenue" fill="#111827" radius={[0, 4, 4, 0]} barSize={20} />
                     </BarChart>
                   </ResponsiveContainer>
@@ -275,7 +275,7 @@ export default function AdminReportsPage() {
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
-                      <RechartsTooltip formatter={(value: number) => `฿${value.toLocaleString()}`} />
+                      <RechartsTooltip formatter={(value: any) => `฿${Number(value).toLocaleString()}`} />
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (

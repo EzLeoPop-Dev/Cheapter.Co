@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Quote,
   Images,
+  BookOpen,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -280,6 +281,7 @@ export default function BookDetailPage() {
         language: "Thai",
         publishDate: "",
         publisher: "Unknown",
+        isOwned: false,
       };
     }
 
@@ -303,6 +305,7 @@ export default function BookDetailPage() {
       publishDate: apiBook.publishDate || "-",
       publisher: apiBook.publisher || "-",
       quote: apiBook.quote || "",
+      isOwned: apiBook.isOwned || false,
     };
   }, [apiBook]);
 

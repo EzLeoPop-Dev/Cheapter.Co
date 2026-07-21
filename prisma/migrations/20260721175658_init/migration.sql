@@ -5,7 +5,7 @@ CREATE TYPE "UserRole" AS ENUM ('CUSTOMER', 'STAFF', 'ADMIN');
 CREATE TYPE "UserStatus" AS ENUM ('Active', 'Banned');
 
 -- CreateEnum
-CREATE TYPE "BookType" AS ENUM ('Hardcover', 'EBook', 'Manga');
+CREATE TYPE "BookType" AS ENUM ('Hardcover', 'EBook', 'Manga', 'Pack');
 
 -- CreateEnum
 CREATE TYPE "StockStatus" AS ENUM ('InStock', 'LowStock', 'OutOfStock');
@@ -28,6 +28,12 @@ CREATE TYPE "ShippingMethod" AS ENUM ('standard', 'express', 'digital');
 -- CreateEnum
 CREATE TYPE "TicketStatus" AS ENUM ('OPEN', 'PENDING', 'CLOSED');
 
+-- CreateEnum
+CREATE TYPE "POStatus" AS ENUM ('Pending', 'Partial', 'Completed', 'Cancelled');
+
+-- CreateEnum
+CREATE TYPE "StockMovementType" AS ENUM ('IN', 'OUT', 'DAMAGED', 'ADJUST');
+
 -- CreateTable
 CREATE TABLE "users" (
     "id" TEXT NOT NULL,
@@ -38,12 +44,28 @@ CREATE TABLE "users" (
     "status" "UserStatus" NOT NULL DEFAULT 'Active',
     "phone" TEXT,
     "birthdate" TIMESTAMP(3),
-    "address" TEXT,
     "profileImage" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "addresses" (
+    "id" SERIAL NOT NULL,
+    "label" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "phone" TEXT NOT NULL,
+    "streetAddress" TEXT NOT NULL,
+    "city" TEXT NOT NULL,
+    "zipCode" TEXT NOT NULL,
+    "isDefault" BOOLEAN NOT NULL DEFAULT false,
+    "userId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "addresses_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -83,6 +105,8 @@ CREATE TABLE "books" (
     "rating" DECIMAL(3,1),
     "reviewCount" INTEGER NOT NULL DEFAULT 0,
     "sampleData" JSONB,
+    "ebookFile" TEXT,
+    "sampleLimit" INTEGER,
     "publisherId" INTEGER,
     "categoryId" INTEGER,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -96,10 +120,12 @@ CREATE TABLE "reviews" (
     "id" SERIAL NOT NULL,
     "rating" INTEGER NOT NULL,
     "comment" TEXT NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'visible',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "userId" TEXT,
     "bookId" INTEGER NOT NULL,
+    "orderId" TEXT,
 
     CONSTRAINT "reviews_pkey" PRIMARY KEY ("id")
 );
@@ -120,6 +146,18 @@ CREATE TABLE "promotions" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "promotions_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "user_coupons" (
+    "id" SERIAL NOT NULL,
+    "userId" TEXT NOT NULL,
+    "promotionId" INTEGER NOT NULL,
+    "isUsed" BOOLEAN NOT NULL DEFAULT false,
+    "collectedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "usedAt" TIMESTAMP(3),
+
+    CONSTRAINT "user_coupons_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -234,6 +272,81 @@ CREATE TABLE "tickets" (
     CONSTRAINT "tickets_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "chat_sessions" (
+    "id" TEXT NOT NULL,
+    "status" "TicketStatus" NOT NULL DEFAULT 'OPEN',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "userId" TEXT,
+
+    CONSTRAINT "chat_sessions_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "chat_messages" (
+    "id" SERIAL NOT NULL,
+    "sessionId" TEXT NOT NULL,
+    "senderId" TEXT,
+    "senderRole" TEXT NOT NULL,
+    "message" TEXT NOT NULL,
+    "isRead" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "chat_messages_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "book_pack_items" (
+    "id" SERIAL NOT NULL,
+    "quantity" INTEGER NOT NULL DEFAULT 1,
+    "packId" INTEGER NOT NULL,
+    "bookId" INTEGER NOT NULL,
+
+    CONSTRAINT "book_pack_items_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "purchase_orders" (
+    "id" TEXT NOT NULL,
+    "supplier" TEXT NOT NULL,
+    "status" "POStatus" NOT NULL DEFAULT 'Pending',
+    "expectedDate" TIMESTAMP(3),
+    "createdBy" TEXT NOT NULL,
+    "note" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "purchase_orders_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "purchase_order_items" (
+    "id" SERIAL NOT NULL,
+    "ordered" INTEGER NOT NULL,
+    "received" INTEGER NOT NULL DEFAULT 0,
+    "unitCost" DECIMAL(10,2) NOT NULL,
+    "purchaseOrderId" TEXT NOT NULL,
+    "bookId" INTEGER NOT NULL,
+
+    CONSTRAINT "purchase_order_items_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "stock_movements" (
+    "id" SERIAL NOT NULL,
+    "type" "StockMovementType" NOT NULL,
+    "quantity" INTEGER NOT NULL,
+    "reference" TEXT,
+    "performedBy" TEXT NOT NULL,
+    "note" TEXT,
+    "balanceAfter" INTEGER NOT NULL DEFAULT 0,
+    "bookId" INTEGER NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "stock_movements_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
 
@@ -242,6 +355,9 @@ CREATE INDEX "users_email_idx" ON "users"("email");
 
 -- CreateIndex
 CREATE INDEX "users_role_idx" ON "users"("role");
+
+-- CreateIndex
+CREATE INDEX "addresses_userId_idx" ON "addresses"("userId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "publishers_name_key" ON "publishers"("name");
@@ -268,6 +384,9 @@ CREATE INDEX "reviews_bookId_idx" ON "reviews"("bookId");
 CREATE INDEX "reviews_userId_idx" ON "reviews"("userId");
 
 -- CreateIndex
+CREATE INDEX "reviews_orderId_idx" ON "reviews"("orderId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "promotions_code_key" ON "promotions"("code");
 
 -- CreateIndex
@@ -275,6 +394,15 @@ CREATE INDEX "promotions_code_idx" ON "promotions"("code");
 
 -- CreateIndex
 CREATE INDEX "promotions_status_idx" ON "promotions"("status");
+
+-- CreateIndex
+CREATE INDEX "user_coupons_userId_idx" ON "user_coupons"("userId");
+
+-- CreateIndex
+CREATE INDEX "user_coupons_promotionId_idx" ON "user_coupons"("promotionId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "user_coupons_userId_promotionId_key" ON "user_coupons"("userId", "promotionId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "cart_items_userId_bookId_key" ON "cart_items"("userId", "bookId");
@@ -315,6 +443,48 @@ CREATE INDEX "tickets_userId_idx" ON "tickets"("userId");
 -- CreateIndex
 CREATE INDEX "tickets_status_idx" ON "tickets"("status");
 
+-- CreateIndex
+CREATE INDEX "chat_sessions_userId_idx" ON "chat_sessions"("userId");
+
+-- CreateIndex
+CREATE INDEX "chat_sessions_status_idx" ON "chat_sessions"("status");
+
+-- CreateIndex
+CREATE INDEX "chat_messages_sessionId_idx" ON "chat_messages"("sessionId");
+
+-- CreateIndex
+CREATE INDEX "book_pack_items_packId_idx" ON "book_pack_items"("packId");
+
+-- CreateIndex
+CREATE INDEX "book_pack_items_bookId_idx" ON "book_pack_items"("bookId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "book_pack_items_packId_bookId_key" ON "book_pack_items"("packId", "bookId");
+
+-- CreateIndex
+CREATE INDEX "purchase_orders_status_idx" ON "purchase_orders"("status");
+
+-- CreateIndex
+CREATE INDEX "purchase_orders_createdAt_idx" ON "purchase_orders"("createdAt");
+
+-- CreateIndex
+CREATE INDEX "purchase_order_items_purchaseOrderId_idx" ON "purchase_order_items"("purchaseOrderId");
+
+-- CreateIndex
+CREATE INDEX "purchase_order_items_bookId_idx" ON "purchase_order_items"("bookId");
+
+-- CreateIndex
+CREATE INDEX "stock_movements_bookId_idx" ON "stock_movements"("bookId");
+
+-- CreateIndex
+CREATE INDEX "stock_movements_type_idx" ON "stock_movements"("type");
+
+-- CreateIndex
+CREATE INDEX "stock_movements_createdAt_idx" ON "stock_movements"("createdAt");
+
+-- AddForeignKey
+ALTER TABLE "addresses" ADD CONSTRAINT "addresses_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
 -- AddForeignKey
 ALTER TABLE "books" ADD CONSTRAINT "books_publisherId_fkey" FOREIGN KEY ("publisherId") REFERENCES "publishers"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
@@ -326,6 +496,15 @@ ALTER TABLE "reviews" ADD CONSTRAINT "reviews_userId_fkey" FOREIGN KEY ("userId"
 
 -- AddForeignKey
 ALTER TABLE "reviews" ADD CONSTRAINT "reviews_bookId_fkey" FOREIGN KEY ("bookId") REFERENCES "books"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "reviews" ADD CONSTRAINT "reviews_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "orders"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "user_coupons" ADD CONSTRAINT "user_coupons_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "user_coupons" ADD CONSTRAINT "user_coupons_promotionId_fkey" FOREIGN KEY ("promotionId") REFERENCES "promotions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "cart_items" ADD CONSTRAINT "cart_items_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -371,3 +550,24 @@ ALTER TABLE "tickets" ADD CONSTRAINT "tickets_userId_fkey" FOREIGN KEY ("userId"
 
 -- AddForeignKey
 ALTER TABLE "tickets" ADD CONSTRAINT "tickets_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "orders"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "chat_sessions" ADD CONSTRAINT "chat_sessions_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "chat_messages" ADD CONSTRAINT "chat_messages_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "chat_sessions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "book_pack_items" ADD CONSTRAINT "book_pack_items_packId_fkey" FOREIGN KEY ("packId") REFERENCES "books"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "book_pack_items" ADD CONSTRAINT "book_pack_items_bookId_fkey" FOREIGN KEY ("bookId") REFERENCES "books"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "purchase_order_items" ADD CONSTRAINT "purchase_order_items_purchaseOrderId_fkey" FOREIGN KEY ("purchaseOrderId") REFERENCES "purchase_orders"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "purchase_order_items" ADD CONSTRAINT "purchase_order_items_bookId_fkey" FOREIGN KEY ("bookId") REFERENCES "books"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "stock_movements" ADD CONSTRAINT "stock_movements_bookId_fkey" FOREIGN KEY ("bookId") REFERENCES "books"("id") ON DELETE CASCADE ON UPDATE CASCADE;

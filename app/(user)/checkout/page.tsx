@@ -75,7 +75,7 @@ export default function CheckoutPage() {
   };
 
   useEffect(() => {
-    if (status === "loading" || status === "unauthenticated") return;
+    if (status === "loading") return;
     
     async function loadCheckout() {
       const [profileResponse, cartResponse] = await Promise.all([

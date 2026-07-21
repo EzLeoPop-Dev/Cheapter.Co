@@ -32,10 +32,10 @@ export async function GET(
     // 🌟 1. ดึง ID ของผู้ใช้งานที่เขียนรีวิวทั้งหมด
     const userIds = allReviews
       .map((r) => r.userId)
-      .filter((uId): uId is number => Boolean(uId));
+      .filter((uId): uId is string => Boolean(uId));
 
     // 🌟 2. คำนวณหาจำนวนที่ซื้อของแต่ละ User สำหรับหนังสือเล่มนี้
-    const purchaseMap = new Map<number, number>();
+    const purchaseMap = new Map<string, number>();
 
     if (userIds.length > 0) {
       try {
