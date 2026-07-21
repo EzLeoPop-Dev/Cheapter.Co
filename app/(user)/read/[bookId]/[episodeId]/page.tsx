@@ -68,11 +68,27 @@ export default async function ReadEpisodePage({
           </h1>
         </header>
 
-        <article className="prose prose-stone prose-lg max-w-none font-serif leading-relaxed text-stone-700">
-          {episode.content ? (
-            <div dangerouslySetInnerHTML={{ __html: episode.content.replace(/\n/g, '<br/>') }} />
+        <article className="prose prose-stone prose-lg max-w-none font-serif leading-relaxed text-stone-700 w-full flex flex-col items-center">
+          {episode.pdfUrl ? (
+            <div className="w-full h-[80vh] min-h-[600px] mt-4 flex flex-col items-center">
+              <iframe 
+                src={`${episode.pdfUrl}#toolbar=0`} 
+                className="w-full h-full rounded-xl shadow-lg border border-stone-200"
+                title={`PDF Viewer - ${episode.title}`}
+              />
+              <a 
+                href={episode.pdfUrl} 
+                target="_blank" 
+                rel="noreferrer"
+                className="mt-6 px-6 py-2 bg-stone-800 text-white rounded-full text-xs font-bold uppercase tracking-wider hover:bg-[#b46b45] transition-colors"
+              >
+                ดาวน์โหลด / เปิดในหน้าใหม่ (Open in new tab)
+              </a>
+            </div>
+          ) : episode.content ? (
+            <div dangerouslySetInnerHTML={{ __html: episode.content.replace(/\n/g, '<br/>') }} className="w-full" />
           ) : (
-            <div className="text-center text-stone-400 italic py-20 bg-stone-100 rounded-2xl">
+            <div className="text-center text-stone-400 italic py-20 bg-stone-100 rounded-2xl w-full">
               ยังไม่มีเนื้อหาสำหรับตอนนี้ (No content available)
             </div>
           )}

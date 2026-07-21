@@ -209,6 +209,7 @@ model BookEpisode {
   bookId      Int
   title       String
   content     String?  @db.Text
+  pdfUrl      String?  @db.Text
   orderIndex  Int      @default(0)
   isFree      Boolean  @default(false)
   createdAt   DateTime @default(now())

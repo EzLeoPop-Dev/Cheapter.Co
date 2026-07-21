@@ -165,6 +165,9 @@ export default function AdminNewProductPage() {
           ebookFile: formData.ebookFile, 
           sampleLimit: formData.trialLimit ? Number(formData.trialLimit) : null 
         } : {}),
+        ...(formData.type === 'serial' ? {
+          chapters: formData.chapters
+        } : {}),
         quote: formData.quote,
       };
 

@@ -14,6 +14,7 @@ type PatchBody = {
   status?: "draft" | "active" | "discontinued";
   ebookFile?: string | null;
   sampleLimit?: number | null;
+  chapters?: any[];
 };
 
 function resolveAdminStatus(sampleData: unknown, stock: number): "draft" | "active" | "discontinued" {
@@ -61,6 +62,9 @@ export async function GET(
             name: true,
           },
         },
+        episodes: {
+          orderBy: { orderIndex: 'asc' }
+        },
       },
     });
 
@@ -85,6 +89,7 @@ export async function GET(
         categoryId: book.category?.id ?? null,
         categoryName: book.category?.name ?? null,
         publisherName: book.publisher?.name ?? "",
+        episodes: book.episodes || [],
       },
     });
   } catch (error) {
@@ -132,6 +137,8 @@ export async function PATCH(
       body.status === "draft" || body.status === "active" || body.status === "discontinued"
         ? body.status
         : undefined;
+
+    const chapters = Array.isArray(body.chapters) ? body.chapters : undefined;
     const hasCategoryId = Object.prototype.hasOwnProperty.call(body, "categoryId");
     let categoryId: number | null | undefined = undefined;
     if (hasCategoryId) {
@@ -207,8 +214,48 @@ export async function PATCH(
             name: true,
           },
         },
+        episodes: true,
       },
     });
+
+    if (chapters && updated.bookType === "Manga") {
+      // Upsert chapters
+      const existingEpisodes = updated.episodes || [];
+      const incomingIds = chapters.map((ch: any) => ch.id).filter((id: any) => typeof id === 'number');
+
+      // Delete episodes that are removed
+      const episodesToDelete = existingEpisodes.filter(ep => !incomingIds.includes(ep.id));
+      if (episodesToDelete.length > 0) {
+        await prisma.bookEpisode.deleteMany({
+          where: { id: { in: episodesToDelete.map(ep => ep.id) } }
+        });
+      }
+
+      // Upsert
+      for (const ch of chapters) {
+        if (typeof ch.id === 'number') {
+          await prisma.bookEpisode.update({
+            where: { id: ch.id },
+            data: {
+              title: ch.title,
+              isFree: Number(ch.price) === 0,
+              pdfUrl: ch.pdfUrl || null,
+              orderIndex: Number(ch.chapterNumber) || 1
+            }
+          });
+        } else {
+          await prisma.bookEpisode.create({
+            data: {
+              bookId: updated.id,
+              title: ch.title,
+              isFree: Number(ch.price) === 0,
+              pdfUrl: ch.pdfUrl || null,
+              orderIndex: Number(ch.chapterNumber) || 1
+            }
+          });
+        }
+      }
+    }
 
     return Response.json({
       book: {

@@ -62,6 +62,7 @@ type PostBody = {
   ebookFile?: string | null;
   sampleLimit?: number | null;
   quote?: string | null;
+  chapters?: any[];
 };
 
 export async function POST(request: NextRequest) {
@@ -157,6 +158,20 @@ export async function POST(request: NextRequest) {
         },
       },
     });
+
+    if (Array.isArray(body?.chapters) && created.bookType === "Manga") {
+      for (const ch of body.chapters) {
+        await prisma.bookEpisode.create({
+          data: {
+            bookId: created.id,
+            title: ch.title,
+            isFree: Number(ch.price) === 0,
+            pdfUrl: ch.pdfUrl || null,
+            orderIndex: Number(ch.chapterNumber) || 1
+          }
+        });
+      }
+    }
 
     return Response.json(
       {

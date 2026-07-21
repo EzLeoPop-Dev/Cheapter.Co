@@ -1,15 +1,17 @@
 // @ts-nocheck
 "use client";
 import React, { useState, useEffect } from 'react';
-import { X, UploadCloud, Save } from 'lucide-react';
+import { X, UploadCloud, Save, Loader2 } from 'lucide-react';
+import { createClient } from '@/src/lib/supabase/client';
 
 export default function ChapterModal({ isOpen, onClose, onSave, initialData, nextChapterNumber = 1 }) {
   const [formData, setFormData] = useState({
     title: '',
     price: '',
-    file: null,
+    pdfUrl: '',
     chapterNumber: 1
   });
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -19,7 +21,7 @@ export default function ChapterModal({ isOpen, onClose, onSave, initialData, nex
           chapterNumber: initialData.chapterNumber || nextChapterNumber
         });
       } else {
-        setFormData({ title: '', price: '', file: null, chapterNumber: nextChapterNumber });
+        setFormData({ title: '', price: '', pdfUrl: '', chapterNumber: nextChapterNumber });
       }
     }
   }, [isOpen, initialData, nextChapterNumber]);
@@ -38,6 +40,41 @@ export default function ChapterModal({ isOpen, onClose, onSave, initialData, nex
       price: Number(formData.price) || 0
     });
     onClose();
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== 'application/pdf') {
+      alert('กรุณาอัปโหลดไฟล์ PDF เท่านั้น');
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+      const supabase = createClient();
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `episodes/${fileName}`;
+
+      const { error } = await supabase.storage
+        .from('ebooks')
+        .upload(filePath, file, { cacheControl: '3600', upsert: false });
+
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('ebooks')
+        .getPublicUrl(filePath);
+
+      setFormData(prev => ({ ...prev, pdfUrl: publicUrl }));
+    } catch (err: any) {
+      console.error('Error uploading file:', err);
+      alert('เกิดข้อผิดพลาดในการอัปโหลดไฟล์');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
@@ -92,26 +129,26 @@ export default function ChapterModal({ isOpen, onClose, onSave, initialData, nex
           </div>
 
           <div>
-            <label className="text-sm font-bold text-gray-700 block mb-1.5">ไฟล์เนื้อหา</label>
-            <div className="relative border-2 border-dashed border-gray-200 rounded-xl p-4 flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer group">
-              <UploadCloud className="w-6 h-6 text-gray-400 group-hover:text-gray-600 transition-colors mb-2" />
-              <span className="text-sm font-medium text-gray-600 group-hover:text-gray-900">
-                {formData.file ? 'เลือกไฟล์อื่นเพื่อเปลี่ยน' : 'คลิกเพื่อเลือกไฟล์ (PDF/EPUB/TXT)'}
-              </span>
-              {formData.file && (
-                <span className="text-xs text-gray-900 font-bold mt-1">ไฟล์ถูกเลือกแล้ว (Mock)</span>
+            <label className="text-sm font-bold text-gray-700 block mb-1.5">ไฟล์เนื้อหา (PDF)</label>
+            <div className={`relative border-2 border-dashed ${isUploading ? 'border-gray-400 bg-gray-100' : 'border-gray-200 bg-gray-50 hover:bg-gray-100'} rounded-xl p-4 flex flex-col items-center justify-center transition-colors cursor-pointer group`}>
+              {isUploading ? (
+                <Loader2 className="w-6 h-6 text-gray-500 animate-spin mb-2" />
+              ) : (
+                <UploadCloud className="w-6 h-6 text-gray-400 group-hover:text-gray-600 transition-colors mb-2" />
               )}
-              {/* Mocking actual file upload by just setting a flag */}
+              <span className="text-sm font-medium text-gray-600 group-hover:text-gray-900">
+                {isUploading ? 'กำลังอัปโหลด...' : formData.pdfUrl ? 'เลือกไฟล์ใหม่เพื่อเปลี่ยน' : 'คลิกเพื่อเลือกไฟล์ PDF'}
+              </span>
+              {formData.pdfUrl && !isUploading && (
+                <span className="text-xs text-emerald-600 font-bold mt-1 overflow-hidden text-ellipsis whitespace-nowrap max-w-[250px]">อัปโหลดสำเร็จแล้ว</span>
+              )}
               <input 
                 type="file" 
-                className="hidden" 
-                onChange={() => setFormData({...formData, file: true})} 
+                accept="application/pdf"
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
+                onChange={handleFileUpload}
+                disabled={isUploading}
               />
-              <button 
-                type="button"
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                onClick={() => setFormData({...formData, file: true})}
-              ></button>
             </div>
           </div>
           

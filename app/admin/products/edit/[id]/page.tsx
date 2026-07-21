@@ -105,7 +105,13 @@ export default function AdminEditProductPage() {
           status: product.status || (product.stock > 0 ? 'active' : 'draft'),
           quantity: product.stock || 0,
           trialLimit: product.sampleLimit ? String(product.sampleLimit) : '',
-          chapters: [],
+          chapters: product.episodes?.map(ep => ({
+            id: ep.id,
+            title: ep.title,
+            price: ep.isFree ? 0 : (product.price || 0), // Fallback if no specific episode price
+            pdfUrl: ep.pdfUrl || '',
+            chapterNumber: ep.orderIndex
+          })) || [],
           ebookFile: product.ebookFile || ''
         });
         if (product.image) {
@@ -222,6 +228,9 @@ export default function AdminEditProductPage() {
         ...(formData.type === 'ebook' ? {
           ebookFile: formData.ebookFile,
           sampleLimit: formData.trialLimit ? Number(formData.trialLimit) : null
+        } : {}),
+        ...(formData.type === 'serial' ? {
+          chapters: formData.chapters
         } : {}),
       };
 
