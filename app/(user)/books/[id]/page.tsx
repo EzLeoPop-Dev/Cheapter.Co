@@ -125,6 +125,12 @@ export default function BookDetailPage() {
     publisher?: string | null;
     quote?: string | null;
     isOwned?: boolean;
+    episodes?: {
+      id: number;
+      title: string;
+      orderIndex: number;
+      isFree: boolean;
+    }[];
   }>(null);
   const [isWishlisted, setIsWishlisted] = useState(false);
 
@@ -282,6 +288,12 @@ export default function BookDetailPage() {
         publishDate: "",
         publisher: "Unknown",
         isOwned: false,
+        episodes: [] as {
+          id: number;
+          title: string;
+          orderIndex: number;
+          isFree: boolean;
+        }[],
       };
     }
 
@@ -306,6 +318,7 @@ export default function BookDetailPage() {
       publisher: apiBook.publisher || "-",
       quote: apiBook.quote || "",
       isOwned: apiBook.isOwned || false,
+      episodes: apiBook.episodes || [],
     };
   }, [apiBook]);
 
@@ -614,6 +627,50 @@ export default function BookDetailPage() {
             </div>
           </div>
         </div>
+
+        {/* Episodes Section */}
+        {BOOK.episodes && BOOK.episodes.length > 0 && (
+          <div className="w-full max-w-4xl mx-auto py-8 mb-12 border-t border-stone-200/50">
+            <h2 className="text-xl font-bold text-stone-800 font-serif mb-6 tracking-tight flex items-center gap-2">
+              <BookOpen size={20} className="text-[#b46b45]" />
+              สารบัญ / ตอนย่อย (Episodes)
+            </h2>
+            <div className="flex flex-col gap-3">
+              {BOOK.episodes.map((episode) => (
+                <div key={episode.id} className="flex items-center justify-between p-4 bg-stone-50 rounded-xl border border-stone-100 hover:border-[#b46b45]/30 transition-colors">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-stone-500 font-medium shadow-sm">
+                      {episode.orderIndex}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="font-semibold text-stone-800">{episode.title}</span>
+                      {episode.isFree ? (
+                        <span className="text-[10px] uppercase tracking-wider font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full w-fit mt-1">อ่านฟรี (Free)</span>
+                      ) : (
+                        <span className="text-[10px] uppercase tracking-wider font-medium text-stone-500 mt-1">
+                          {BOOK.isOwned ? "ปลดล็อคแล้ว (Unlocked)" : "ต้องซื้อหนังสือ (Requires Purchase)"}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {(episode.isFree || BOOK.isOwned) ? (
+                    <button 
+                      onClick={() => router.push(`/read/${BOOK.id}/${episode.id}`)}
+                      className="px-6 py-2 bg-stone-800 hover:bg-[#b46b45] text-white text-xs font-bold uppercase tracking-wider rounded-full transition-colors"
+                    >
+                      อ่าน (Read)
+                    </button>
+                  ) : (
+                    <div className="px-6 py-2 bg-stone-200 text-stone-400 text-xs font-bold uppercase tracking-wider rounded-full cursor-not-allowed">
+                      ล็อค (Locked)
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Reviews Section */}
         <div className="w-full pt-16 border-t border-stone-200/50 mb-16">

@@ -25,6 +25,9 @@ export async function GET(
         publisher: {
           select: { name: true },
         },
+        episodes: {
+          orderBy: { orderIndex: 'asc' }
+        },
       },
     });
 

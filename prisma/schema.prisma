@@ -195,12 +195,29 @@ model Book {
   includedInPacks BookPackItem[] @relation("ItemToPack")
   purchaseOrderItems PurchaseOrderItem[]
   stockMovements     StockMovement[]
+  episodes           BookEpisode[]
 
   @@index([bookType])
   @@index([categoryId])
   @@index([publisherId])
   @@index([stockStatus])
   @@map("books")
+}
+
+model BookEpisode {
+  id          Int      @id @default(autoincrement())
+  bookId      Int
+  title       String
+  content     String?  @db.Text
+  orderIndex  Int      @default(0)
+  isFree      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  book        Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@index([bookId])
+  @@map("book_episodes")
 }
 
 model Review {
