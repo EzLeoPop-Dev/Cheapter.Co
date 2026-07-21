@@ -389,7 +389,7 @@ export default function OrdersPage() {
         )}
       </div>
 
-<<<<<<< HEAD
+
       {/* Modal เขียน/แก้ไขรีวิว */}
       {reviewModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm z-[100]">
@@ -489,71 +489,21 @@ export default function OrdersPage() {
                 onClick={closeModal}
                 disabled={isSubmitting}
                 className="px-5 py-2.5 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-=======
-      {/* Review Modal */}
-      {reviewModalOpen && selectedReviewItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col p-6 text-center animate-in fade-in zoom-in duration-200">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-gray-900 font-serif">เขียนรีวิว</h3>
-              <button 
-                onClick={() => setReviewModalOpen(false)}
-                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
               >
-                <X size={18} />
+                ยกเลิก
               </button>
-            </div>
-            
-            <p className="text-sm text-gray-500 mb-2">ให้คะแนนสินค้า</p>
-            <p className="text-base font-bold text-gray-800 mb-6">{selectedReviewItem.title}</p>
-            
-            <div className="flex justify-center gap-2 mb-8">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <button
-                  key={star}
-                  type="button"
-                  onClick={() => setReviewRating(star)}
-                  onMouseEnter={() => setReviewHoverRating(star)}
-                  onMouseLeave={() => setReviewHoverRating(0)}
-                  className="transition-transform hover:scale-110 focus:outline-none"
-                >
-                  <Star 
-                    size={36} 
-                    className={`transition-colors ${(reviewHoverRating || reviewRating) >= star ? "fill-[#b46b45] text-[#b46b45]" : "fill-gray-100 text-gray-200"}`} 
-                  />
-                </button>
-              ))}
-            </div>
-
-            <div className="text-left mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">รายละเอียดรีวิว (ไม่บังคับ)</label>
-              <textarea
-                value={reviewComment}
-                onChange={(e) => setReviewComment(e.target.value)}
-                placeholder="เล่าประสบการณ์ของคุณที่มีต่อหนังสือเล่มนี้..."
-                rows={4}
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#b46b45]/30 focus:border-[#b46b45] transition-all resize-none"
-              />
-            </div>
-
-            <div className="flex gap-3 mt-2">
-              <button 
-                onClick={() => setReviewModalOpen(false)}
-                className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold transition-colors text-sm"
->>>>>>> 790fba33fab2b4670b25bb692bcb004fdfc0c27a
+              <button
+                onClick={handleSubmitReview}
+                disabled={isSubmitting}
+                className="px-5 py-2.5 text-sm font-bold text-white bg-[#bc876e] rounded-lg hover:bg-[#a6755c] disabled:opacity-70 flex items-center gap-2"
               >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    กำลังส่งข้อมูล...
-                  </>
-                ) : (reviewModal.reviewId ? "บันทึกการแก้ไข" : "ส่งรีวิว")}
+                {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                {reviewModal.reviewId ? "บันทึกการแก้ไข" : "ส่งรีวิว"}
               </button>
             </div>
           </div>
         </div>
       )}
-
     </div>
   );
 }

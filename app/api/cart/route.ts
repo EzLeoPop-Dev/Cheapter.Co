@@ -74,13 +74,39 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Book is unavailable" }, { status: 400 });
   }
 
-  const finalQty = book.bookType === "EBook" ? parsedQuantity : Math.min(parsedQuantity, book.stock);
-
-  await prisma.cartItem.upsert({
-    where: { userId_bookId: { userId: user.id, bookId: parsedBookId } },
-    create: { userId: user.id, bookId: parsedBookId, quantity: finalQty },
-    update: { quantity: { increment: parsedQuantity } },
-  });
+  if (book.bookType === "EBook") {
+    const owned = await prisma.userLibrary.findFirst({
+      where: { userId: user.id, bookId: parsedBookId }
+    });
+    if (owned) {
+      return NextResponse.json({ error: "คุณมีหนังสือ E-Book เล่มนี้ในคลังแล้ว" }, { status: 400 });
+    }
+    
+    // For EBook, quantity is always 1. If it exists in cart, don't increment.
+    await prisma.cartItem.upsert({
+      where: { userId_bookId: { userId: user.id, bookId: parsedBookId } },
+      create: { userId: user.id, bookId: parsedBookId, quantity: 1 },
+      update: { quantity: 1 },
+    });
+  } else {
+    const finalQty = Math.min(parsedQuantity, book.stock);
+    await prisma.cartItem.upsert({
+      where: { userId_bookId: { userId: user.id, bookId: parsedBookId } },
+      create: { userId: user.id, bookId: parsedBookId, quantity: finalQty },
+      update: { quantity: { increment: parsedQuantity } },
+    });
+    
+    // Optional: cap again if increment exceeded stock
+    const currentItem = await prisma.cartItem.findUnique({
+      where: { userId_bookId: { userId: user.id, bookId: parsedBookId } }
+    });
+    if (currentItem && currentItem.quantity > book.stock) {
+      await prisma.cartItem.update({
+        where: { id: currentItem.id },
+        data: { quantity: book.stock }
+      });
+    }
+  }
 
   const items = await prisma.cartItem.findMany({
     where: { userId: user.id },
@@ -106,7 +132,7 @@ export async function PATCH(req: Request) {
 
   if (!item) return NextResponse.json({ error: "Cart item not found" }, { status: 404 });
 
-  const finalQty = item.book.bookType === "EBook" ? parsedQuantity : Math.min(parsedQuantity, item.book.stock);
+  const finalQty = item.book.bookType === "EBook" ? 1 : Math.min(parsedQuantity, item.book.stock);
 
   await prisma.cartItem.update({
     where: { id: parsedItemId },

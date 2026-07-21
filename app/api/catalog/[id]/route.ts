@@ -1,4 +1,6 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "../../auth/[...nextauth]/route";
 
 import { prisma } from "@/src/lib/prisma";
 
@@ -35,7 +37,18 @@ export async function GET(
         }
       }
 
-      return Response.json({
+      let isOwned = false;
+      if (dbBook.bookType === "EBook") {
+        const session = await getServerSession(authOptions);
+        if (session?.user?.id) {
+          const owned = await prisma.userLibrary.findFirst({
+            where: { userId: session.user.id, bookId: dbBook.id }
+          });
+          if (owned) isOwned = true;
+        }
+      }
+
+      return NextResponse.json({
         source: "database",
         book: {
           id: dbBook.id,
@@ -58,6 +71,7 @@ export async function GET(
           ebookFile: dbBook.ebookFile,
           sampleLimit: dbBook.sampleLimit,
           quote: quote,
+          isOwned: isOwned,
         },
       });
     }

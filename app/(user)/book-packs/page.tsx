@@ -6,10 +6,12 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "../../context/LanguageContext";
+import { useCart, GUEST_CART_KEY } from "../../context/CartContext";
 
 export default function BookPacksCatalogPage() {
   const { t } = useLanguage();
   const router = useRouter();
+  const { refreshCart, openCart } = useCart();
   const [packs, setPacks] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [addingId, setAddingId] = useState<string | null>(null);
@@ -27,13 +29,38 @@ export default function BookPacksCatalogPage() {
         body: JSON.stringify({ bookId: Number(pack.id), quantity: 1 }),
       });
       if (res.status === 401) {
-        router.push("/auth/signin");
+        const rawCart = localStorage.getItem(GUEST_CART_KEY);
+        const cart = rawCart ? JSON.parse(rawCart) : [];
+        const existing = cart.find((item: any) => item.bookId === Number(pack.id));
+        const nextCart = existing
+          ? cart.map((item: any) => item.bookId === Number(pack.id) ? { ...item, quantity: item.quantity + 1 } : item)
+          : [
+              ...cart,
+              {
+                id: Date.now(),
+                bookId: Number(pack.id),
+                title: pack.title,
+                author: pack.curator || "Store Staff",
+                price: pack.totalPrice,
+                quantity: 1,
+                imageUrl: pack.image,
+                isPack: true,
+              },
+            ];
+        localStorage.setItem(GUEST_CART_KEY, JSON.stringify(nextCart));
+        setAddedId(pack.id);
+        setTimeout(async () => {
+          setAddedId(null);
+          await refreshCart();
+          openCart();
+        }, 800);
         return;
       }
       setAddedId(pack.id);
-      setTimeout(() => {
+      setTimeout(async () => {
         setAddedId(null);
-        router.push("/cart");
+        await refreshCart();
+        openCart();
       }, 800);
     } catch {
       // silent
@@ -125,14 +152,7 @@ export default function BookPacksCatalogPage() {
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       style={{ minHeight: '200px' }}
                     />
-                    {/* spine shadow */}
                     <div className="absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r from-black/20 to-transparent pointer-events-none" />
-                    {/* Status badge */}
-                    <div className={`absolute top-2.5 right-2.5 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider rounded-full shadow-sm ${
-                      pack.badge === 'Available' ? 'bg-[#7a8c6e]/90 text-white' : 'bg-[#b37554]/90 text-white'
-                    }`}>
-                      {pack.badge}
-                    </div>
                   </Link>
 
                   {/* ── Right: Content ── */}

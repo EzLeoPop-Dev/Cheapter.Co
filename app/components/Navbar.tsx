@@ -14,8 +14,10 @@ import {
   Loader2,
   LayoutGrid
 } from "lucide-react";
+import { useSession, signOut } from "next-auth/react";
+import Image from "next/image";
 import { useLanguage } from "../context/LanguageContext";
-import { signOut, useSession } from "next-auth/react";
+import { useCart } from "../context/CartContext";
 import { CategoryWheelModal } from "./CategoryWheelModal";
 
 // --- Types สำหรับระบบ Search ---
@@ -35,7 +37,6 @@ export function Navbar() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { lang, setLang, t } = useLanguage();
-  
   // --- State สำหรับระบบ Search ---
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchBook[]>([]);
@@ -47,8 +48,8 @@ export function Navbar() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // --- State สำหรับจำนวนสินค้าในตะกร้า ---
-  const [cartCount, setCartCount] = useState(0);
+  // --- Cart State จาก Context ---
+  const { cartCount, openCart } = useCart();
   
   // --- State สำหรับติดตามการ Scroll ---
   const [isScrolled, setIsScrolled] = useState(false);
@@ -82,29 +83,6 @@ export function Navbar() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  // --- Effect สำหรับดึงจำนวนสินค้าในตะกร้า ---
-  useEffect(() => {
-    if (status !== "authenticated") {
-      setCartCount(0);
-      return;
-    }
-    const fetchCart = async () => {
-      try {
-        const res = await fetch("/api/cart", { cache: "no-store" });
-        if (!res.ok) return;
-        const data = await res.json();
-        const total = (data.items ?? []).reduce(
-          (sum: number, item: { quantity: number }) => sum + item.quantity,
-          0
-        );
-        setCartCount(total);
-      } catch {
-        // ไม่ทำอะไรถ้า fetch ล้มเหลว
-      }
-    };
-    fetchCart();
-  }, [status]);
 
   // --- Effect สำหรับระบบดึงข้อมูล Search API ---
   useEffect(() => {
@@ -218,12 +196,6 @@ export function Navbar() {
           {t('nav.bookPack')}
         </Link>
         <Link 
-          href="/editorial" 
-          className={pathname?.startsWith("/editorial") ? "relative after:absolute after:-bottom-1 after:left-0 after:w-full after:h-0.5 after:bg-amber-900 text-amber-900" : "hover:text-amber-900 transition-colors text-stone-600"}
-        >
-          {t('nav.editorial')}
-        </Link>
-        <Link 
           href="/catalog?formats=EBook" 
           className={pathname === "/catalog" && searchParams?.get("formats") === "EBook" ? "relative after:absolute after:-bottom-1 after:left-0 after:w-full after:h-0.5 after:bg-amber-900 text-amber-900" : "hover:text-amber-900 transition-colors text-stone-600"}
         >
@@ -316,14 +288,14 @@ export function Navbar() {
         
         {/* เมนูด้านขวา (Cart, Profile/Auth, Language) */}
         <div className="flex items-center gap-4">
-          <Link href="/cart" className="relative text-amber-900 hover:opacity-80 transition-opacity block">
+          <button onClick={openCart} className="relative text-amber-900 hover:opacity-80 transition-opacity block">
             <ShoppingCart size={20} />
             {cartCount > 0 && (
               <span className="absolute -top-1.5 -right-1.5 bg-green-700 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
                 {cartCount > 99 ? "99+" : cartCount}
               </span>
             )}
-          </Link>
+          </button>
 
           {/* เช็คสถานะล็อกอิน */}
           {status === "loading" ? (

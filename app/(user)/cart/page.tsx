@@ -5,6 +5,7 @@ import { Check, Minus, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 type PackBook = {
   title: string;
@@ -34,6 +35,7 @@ const GUEST_CART_KEY = "cheapterCart";
 
 export default function CartPage() {
   const router = useRouter();
+  const { status } = useSession();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -273,7 +275,16 @@ export default function CartPage() {
                 </span>
               </div>
 
-              <button onClick={() => router.push("/checkout")} className="w-full bg-[#8b5a45] hover:bg-[#724a38] text-white py-3.5 rounded-md font-bold text-sm transition-colors shadow-sm">
+              <button 
+                onClick={() => {
+                  if (status === "unauthenticated") {
+                    router.push("/auth/login?callbackUrl=/checkout");
+                  } else {
+                    router.push("/checkout");
+                  }
+                }} 
+                className="w-full bg-[#8b5a45] hover:bg-[#724a38] text-white py-3.5 rounded-md font-bold text-sm transition-colors shadow-sm"
+              >
                 Proceed to Checkout
               </button>
             </div>

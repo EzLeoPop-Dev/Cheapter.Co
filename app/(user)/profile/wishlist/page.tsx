@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Heart, ShoppingCart, Trash2, Check } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useCart, GUEST_CART_KEY } from '@/app/context/CartContext';
 import {
   fetchWishlistFromApi,
   getWishlistBooks,
@@ -14,6 +15,7 @@ import {
 
 export default function WishlistPage() {
   const router = useRouter();
+  const { refreshCart, openCart } = useCart();
   const [wishlistItems, setWishlistItems] = useState<WishlistBook[]>([]);
   const [useApiMode, setUseApiMode] = useState(false);
   const [addingId, setAddingId] = useState<number | null>(null);
@@ -80,13 +82,40 @@ export default function WishlistPage() {
         body: JSON.stringify({ bookId, quantity: 1 }),
       });
       if (res.status === 401) {
-        router.push('/auth/signin');
+        const itemObj = wishlistItems.find(w => w.id === bookId);
+        if (itemObj) {
+          const rawCart = localStorage.getItem(GUEST_CART_KEY);
+          const cart = rawCart ? JSON.parse(rawCart) : [];
+          const existing = cart.find((item: any) => item.bookId === bookId);
+          const nextCart = existing
+            ? cart.map((item: any) => item.bookId === bookId ? { ...item, quantity: item.quantity + 1 } : item)
+            : [
+                ...cart,
+                {
+                  id: Date.now(),
+                  bookId: bookId,
+                  title: itemObj.title,
+                  author: itemObj.author,
+                  price: itemObj.price,
+                  quantity: 1,
+                  imageUrl: itemObj.imageUrl,
+                },
+              ];
+          localStorage.setItem(GUEST_CART_KEY, JSON.stringify(nextCart));
+          setAddedId(bookId);
+          setTimeout(async () => {
+            setAddedId(null);
+            await refreshCart();
+            openCart();
+          }, 800);
+        }
         return;
       }
       setAddedId(bookId);
-      setTimeout(() => {
+      setTimeout(async () => {
         setAddedId(null);
-        router.push('/cart');
+        await refreshCart();
+        openCart();
       }, 800);
     } catch {
       // silent

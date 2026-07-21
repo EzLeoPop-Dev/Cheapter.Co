@@ -17,6 +17,7 @@ import {
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState, useMemo, useEffect } from "react";
+import { useCart, GUEST_CART_KEY } from "@/app/context/CartContext";
 import {
   addWishlistToApi,
   fetchWishlistFromApi,
@@ -97,11 +98,11 @@ const RELATED_BOOKS = [
   },
 ];
 
-const GUEST_CART_KEY = "cheapterCart";
 
 export default function BookDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { refreshCart, openCart } = useCart();
   const [isReadMore, setIsReadMore] = useState(false);
   const [isQuoteExpanded, setIsQuoteExpanded] = useState(false);
   const [apiBook, setApiBook] = useState<null | {
@@ -122,6 +123,7 @@ export default function BookDetailPage() {
     publishDate?: string | null;
     publisher?: string | null;
     quote?: string | null;
+    isOwned?: boolean;
   }>(null);
   const [isWishlisted, setIsWishlisted] = useState(false);
 
@@ -353,7 +355,7 @@ export default function BookDetailPage() {
         const nextCart = existing
           ? cart.map((item: any) =>
               item.bookId === apiBook.id
-                ? { ...item, quantity: item.quantity + 1 }
+                ? { ...item, quantity: apiBook.format === "EBook" ? 1 : item.quantity + 1 }
                 : item,
             )
           : [
@@ -366,16 +368,26 @@ export default function BookDetailPage() {
                 price: apiBook.price,
                 quantity: 1,
                 imageUrl: apiBook.imageUrl,
+                bookType: apiBook.format,
               },
             ];
         localStorage.setItem(GUEST_CART_KEY, JSON.stringify(nextCart));
-        router.push("/cart");
+        await refreshCart();
+        openCart();
         return;
       }
 
       if (response.ok) {
-        router.push("/cart");
+        await refreshCart();
+        openCart();
+      } else {
+        const errorData = await response.json();
+        if (errorData.error) {
+          alert(errorData.error);
+        }
       }
+    } catch (e) {
+      console.error(e);
     } finally {
       setAddingToCart(false);
     }
@@ -446,7 +458,14 @@ export default function BookDetailPage() {
             </button>
 
             <div className="flex items-center gap-3">
-              {BOOK.quantity > 0 || BOOK.format === "EBook" ? (
+              {BOOK.isOwned ? (
+                <Link
+                  href="/profile/ebooks"
+                  className="bg-[#2b4c3e] hover:bg-[#1a3227] text-white px-8 py-2.5 rounded-md font-bold text-xs transition-all shadow-sm flex items-center gap-2"
+                >
+                  <BookOpen size={14} /> ไปที่คลังหนังสือ (My Library)
+                </Link>
+              ) : BOOK.quantity > 0 || BOOK.format === "EBook" ? (
                 <button
                   onClick={handleAddToCart}
                   disabled={addingToCart}

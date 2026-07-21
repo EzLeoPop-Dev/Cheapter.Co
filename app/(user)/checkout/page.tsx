@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { Navbar } from "../../components/Navbar";
 import { Lock, Truck, CreditCard, ShieldCheck, RefreshCcw, QrCode, HandCoins, Ticket, Percent, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 type CheckoutItem = {
   id: number;
@@ -40,6 +41,13 @@ export default function CheckoutPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGuest, setIsGuest] = useState(false);
 
+  const { status } = useSession({
+    required: true,
+    onUnauthenticated() {
+      router.push('/auth/login?callbackUrl=/checkout');
+    },
+  });
+
   // Coupon states
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
@@ -67,6 +75,8 @@ export default function CheckoutPage() {
   };
 
   useEffect(() => {
+    if (status === "loading" || status === "unauthenticated") return;
+    
     async function loadCheckout() {
       const [profileResponse, cartResponse] = await Promise.all([
         fetch("/api/profile", { cache: "no-store", credentials: "include" }),
@@ -95,7 +105,7 @@ export default function CheckoutPage() {
 
     loadCheckout();
     loadAvailableCoupons();
-  }, []);
+  }, [status]);
 
   useEffect(() => {
     const digitalOnly = cartItems.length > 0 && cartItems.every(item => item.bookType === "EBook");
