@@ -8,6 +8,7 @@ export default function AdminOrdersPage() {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [showShipConfirm, setShowShipConfirm] = useState(false);
   const [showSlip, setShowSlip] = useState(false);
   const [trackingInput, setTrackingInput] = useState('');
   const [printOrder, setPrintOrder] = useState<any>(null);
@@ -62,8 +63,8 @@ export default function AdminOrdersPage() {
       case 'รอชำระเงิน': return 'bg-gray-100 text-gray-600 border-gray-200';
       case 'ตรวจสอบชำระเงิน': return 'bg-yellow-50 text-yellow-700 border-yellow-200';
       case 'รอแพ็ค': return 'bg-orange-50 text-orange-700 border-orange-200';
-      case 'รอจัดส่ง': return 'bg-blue-50 text-blue-700 border-blue-200';
-      case 'จัดส่งแล้ว': return 'bg-green-50 text-green-700 border-green-200';
+      case 'จัดส่งบริษัทขนส่ง': return 'bg-blue-50 text-blue-700 border-blue-200';
+      case 'สำเร็จ': return 'bg-green-50 text-green-700 border-green-200';
       default: return 'bg-gray-100 text-gray-700 border-gray-200';
     }
   };
@@ -73,8 +74,8 @@ export default function AdminOrdersPage() {
       case 'รอชำระเงิน': return <CreditCard className="w-3.5 h-3.5" />;
       case 'ตรวจสอบชำระเงิน': return <Eye className="w-3.5 h-3.5" />;
       case 'รอแพ็ค': return <Box className="w-3.5 h-3.5" />;
-      case 'รอจัดส่ง': return <Truck className="w-3.5 h-3.5" />;
-      case 'จัดส่งแล้ว': return <CheckCircle2 className="w-3.5 h-3.5" />;
+      case 'จัดส่งบริษัทขนส่ง': return <Truck className="w-3.5 h-3.5" />;
+      case 'สำเร็จ': return <CheckCircle2 className="w-3.5 h-3.5" />;
       default: return null;
     }
   };
@@ -82,9 +83,16 @@ export default function AdminOrdersPage() {
   const renderActionButtons = (order) => {
     switch (order.status) {
       case 'ตรวจสอบชำระเงิน': {
+        if (order.shippingMethod === 'digital') {
+          return (
+            <button onClick={() => updateStatus(order.id, 'สำเร็จ')} className="px-4 py-2 text-xs font-bold bg-green-600 text-white hover:bg-green-700 rounded-lg transition-colors shadow-sm">
+              ยืนยันการชำระเงิน (ส่งเข้าคลัง)
+            </button>
+          );
+        }
         return (
           <button onClick={() => updateStatus(order.id, 'รอแพ็ค')} className="px-4 py-2 text-xs font-bold bg-gray-900 text-white hover:bg-gray-800 rounded-lg transition-colors shadow-sm">
-            {t('order.action.verify')}
+            ยืนยันการชำระเงิน
           </button>
         );
       }
@@ -94,20 +102,21 @@ export default function AdminOrdersPage() {
             <button onClick={() => setPrintOrder(order)} className="p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors border border-transparent hover:border-gray-200" title={t('order.action.print')}>
               <Printer className="w-4 h-4" />
             </button>
-            <button onClick={() => updateStatus(order.id, 'รอจัดส่ง')} className="px-4 py-2 text-xs font-bold bg-gray-900 text-white hover:bg-gray-800 rounded-lg transition-colors shadow-sm">
-              {t('order.action.packDone')}
+            <button onClick={() => {
+              setSelectedOrder(order);
+              setTrackingInput(order.trackingNumber || '');
+            }} className="px-4 py-2 text-xs font-bold bg-gray-900 text-white hover:bg-gray-800 rounded-lg transition-colors shadow-sm flex items-center gap-2">
+              <Truck className="w-4 h-4" />
+              ดำเนินการจัดส่ง
             </button>
           </div>
         );
-      case 'รอจัดส่ง':
+      case 'จัดส่งบริษัทขนส่ง':
         return (
           <div className="flex items-center gap-2">
-             <button onClick={() => setPrintOrder(order)} className="p-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors border border-transparent hover:border-gray-200" title={t('order.action.print')}>
-              <Printer className="w-4 h-4" />
-            </button>
-            <button onClick={() => updateStatus(order.id, 'จัดส่งแล้ว')} className="px-4 py-2 text-xs font-bold bg-gray-900 text-white hover:bg-gray-800 rounded-lg transition-colors shadow-sm flex items-center gap-2">
-              <PackageCheck className="w-4 h-4" />
-              {t('order.action.ship')}
+            <button onClick={() => updateStatus(order.id, 'สำเร็จ')} className="px-4 py-2 text-xs font-bold bg-gray-900 text-white hover:bg-gray-800 rounded-lg transition-colors shadow-sm flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4" />
+              สำเร็จ
             </button>
           </div>
         );
@@ -120,9 +129,9 @@ export default function AdminOrdersPage() {
     switch (status) {
       case 'รอชำระเงิน': return t('order.tab.pending');
       case 'ตรวจสอบชำระเงิน': return t('order.tab.verify');
-      case 'รอแพ็ค': return t('order.tab.processing');
-      case 'รอจัดส่ง': return t('order.tab.ready');
-      case 'จัดส่งแล้ว': return t('order.tab.shipped');
+      case 'รอแพ็ค': return 'รอแพ็ค';
+      case 'จัดส่งบริษัทขนส่ง': return 'จัดส่งบริษัทขนส่ง';
+      case 'สำเร็จ': return 'สำเร็จ';
       default: return status;
     }
   };
@@ -156,9 +165,9 @@ export default function AdminOrdersPage() {
               { key: 'all', label: t('order.tab.all') },
               { key: 'รอชำระเงิน', label: t('order.tab.pending') },
               { key: 'ตรวจสอบชำระเงิน', label: t('order.tab.verify') },
-              { key: 'รอแพ็ค', label: t('order.tab.processing') },
-              { key: 'รอจัดส่ง', label: t('order.tab.ready') },
-              { key: 'จัดส่งแล้ว', label: t('order.tab.shipped') }
+              { key: 'รอแพ็ค', label: 'รอแพ็ค' },
+              { key: 'จัดส่งบริษัทขนส่ง', label: 'จัดส่งบริษัทขนส่ง' },
+              { key: 'สำเร็จ', label: 'สำเร็จ' }
             ].map((tab) => (
               <button 
                 key={tab.key}
@@ -209,7 +218,10 @@ export default function AdminOrdersPage() {
                       <td className="py-4 px-6">
                         <div className="flex justify-end items-center gap-3 whitespace-nowrap">
                           {renderActionButtons(order)}
-                          <button onClick={() => setSelectedOrder(order)} className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors border border-transparent hover:border-gray-200">
+                          <button onClick={() => {
+                            setSelectedOrder(order);
+                            setTrackingInput(order.trackingNumber || '');
+                          }} className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors border border-transparent hover:border-gray-200">
                             <ExternalLink className="w-4 h-4" />
                           </button>
                         </div>
@@ -266,21 +278,30 @@ export default function AdminOrdersPage() {
                     <h4 className="text-[10px] font-bold text-gray-400 mb-3 uppercase tracking-widest flex items-center gap-2">
                       <Truck className="w-3 h-3" /> {t('order.detail.shipMethod')}
                     </h4>
-                    <p className="font-bold text-gray-900">{selectedOrder.shippingMethod}</p>
+                    <p className="font-bold text-gray-900">
+                      {selectedOrder.shippingMethod === 'digital' ? 'Digital Delivery (E-book)' : selectedOrder.shippingMethod}
+                    </p>
                     <p className="text-xs text-gray-500 mt-1 font-medium">{t('order.detail.placedOn')} {selectedOrder.date}</p>
                   </div>
                   <div className="mt-4 pt-4 border-t border-gray-100">
-                    {selectedOrder.trackingNumber ? (
+                    {selectedOrder.shippingMethod === 'digital' ? (
+                      <div>
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">สถานะจัดส่ง</span>
+                        <span className="font-bold text-green-600 text-sm block mt-1">
+                          ส่งเข้าคลัง E-book
+                        </span>
+                      </div>
+                    ) : selectedOrder.trackingNumber ? (
                       <div>
                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">{t('order.detail.tracking')}</span>
                         <span className="font-mono font-bold text-gray-900 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg text-sm block w-fit">
                           {selectedOrder.trackingNumber}
                         </span>
                       </div>
-                    ) : (selectedOrder.status === 'รอจัดส่ง' || selectedOrder.status === 'รอแพ็ค') ? (
+                    ) : (selectedOrder.status === 'รอแพ็ค') ? (
                       <div>
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2">{t('order.detail.assignTracking')}</span>
-                        <input type="text" value={trackingInput} onChange={(e) => setTrackingInput(e.target.value)} placeholder="เช่น TH12345678 (ถ้ามี)" className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:border-gray-900 focus:bg-white transition-colors" />
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2">{t('order.detail.assignTracking')} <span className="text-red-500">*</span></span>
+                        <input type="text" value={trackingInput} onChange={(e) => setTrackingInput(e.target.value)} placeholder="กรุณาระบุเลขพัสดุ (เช่น TH12345678)" className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:border-gray-900 focus:bg-white transition-colors" />
                       </div>
                     ) : (
                       <span className="text-sm text-gray-400 italic">-</span>
@@ -355,7 +376,7 @@ export default function AdminOrdersPage() {
             </div>
             
             {/* Modal Footer */}
-            {selectedOrder.status === 'รอจัดส่ง' ? (
+            {selectedOrder.status === 'รอแพ็ค' ? (
               <div className="px-8 py-5 border-t border-gray-100 bg-white flex justify-end gap-3 sticky bottom-0">
                 <button 
                   onClick={() => setSelectedOrder(null)} 
@@ -364,14 +385,30 @@ export default function AdminOrdersPage() {
                   {t('order.detail.cancel')}
                 </button>
                 <button 
+                  onClick={() => {
+                    if (!trackingInput || !trackingInput.trim()) {
+                      alert("❌ กรุณาระบุเลขพัสดุ (Tracking Number) ก่อนทำการจัดส่ง");
+                      return;
+                    }
+                    setShowShipConfirm(true);
+                  }} 
+                  className="px-6 py-2.5 bg-gray-900 hover:bg-gray-800 text-white rounded-xl font-bold transition-colors text-sm shadow-md flex items-center gap-2"
+                >
+                  <Truck className="w-4 h-4" />
+                  จัดส่ง
+                </button>
+              </div>
+            ) : selectedOrder.status === 'จัดส่งบริษัทขนส่ง' ? (
+              <div className="px-8 py-5 border-t border-gray-100 bg-white flex justify-end gap-3 sticky bottom-0">
+                <button 
                   onClick={async () => {
-                    await updateStatus(selectedOrder.id, 'จัดส่งแล้ว', trackingInput || undefined);
+                    await updateStatus(selectedOrder.id, 'สำเร็จ');
                     setSelectedOrder(null);
                   }} 
                   className="px-6 py-2.5 bg-gray-900 hover:bg-gray-800 text-white rounded-xl font-bold transition-colors text-sm shadow-md flex items-center gap-2"
                 >
-                  <PackageCheck className="w-4 h-4" />
-                  {t('order.detail.confirmShip')}
+                  <CheckCircle2 className="w-4 h-4" />
+                  สำเร็จ
                 </button>
               </div>
             ) : (
@@ -406,6 +443,54 @@ export default function AdminOrdersPage() {
             </div>
           </div>
         )}
+      
+      {/* Ship Confirmation Modal */}
+      {showShipConfirm && selectedOrder && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-md">
+          <div className="bg-white rounded-[24px] w-full max-w-md shadow-2xl overflow-hidden flex flex-col p-8 text-center transition-all scale-100 opacity-100">
+            <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner border border-blue-100">
+              <Truck className="w-10 h-10" />
+            </div>
+            <h3 className="text-2xl font-black text-gray-900 mb-2">{t('order.detail.confirmShip') || 'ยืนยันการจัดส่งสินค้า?'}</h3>
+            <p className="text-gray-500 mb-6 text-sm">
+              คุณกำลังยืนยันการจัดส่งสำหรับออเดอร์ <span className="font-bold text-gray-900">{selectedOrder.id}</span>
+            </p>
+            
+            <div className="bg-gray-50 rounded-2xl p-5 text-left space-y-4 mb-8 border border-gray-100">
+              <div className="flex justify-between items-center text-sm border-b border-gray-200 pb-4">
+                <span className="text-gray-500 font-medium">เลขพัสดุ</span>
+                <span className="font-mono font-bold text-gray-900 bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">{trackingInput.trim()}</span>
+              </div>
+              <div className="flex justify-between items-start text-sm pt-1">
+                <span className="text-gray-500 font-medium">ผู้รับ</span>
+                <div className="text-right flex flex-col items-end">
+                  <span className="font-bold text-gray-900">{selectedOrder.customer}</span>
+                  <span className="text-gray-500 text-xs mt-1 line-clamp-2 w-48 leading-relaxed">{selectedOrder.address}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setShowShipConfirm(false)}
+                className="flex-1 py-3.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold transition-colors text-sm"
+              >
+                ยกเลิก
+              </button>
+              <button 
+                onClick={async () => {
+                  await updateStatus(selectedOrder.id, 'จัดส่งบริษัทขนส่ง', trackingInput.trim());
+                  setShowShipConfirm(false);
+                  setSelectedOrder(null);
+                }} 
+                className="flex-1 py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-colors text-sm shadow-[0_4px_14px_0_rgba(37,99,235,0.39)] hover:shadow-[0_6px_20px_rgba(37,99,235,0.23)] hover:-translate-y-0.5 transform"
+              >
+                ยืนยันจัดส่ง
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Print Label Area - ใบปะหน้าพัสดุ */}
       {printOrder && (

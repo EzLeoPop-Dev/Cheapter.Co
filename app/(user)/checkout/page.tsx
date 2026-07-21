@@ -14,6 +14,7 @@ type CheckoutItem = {
   price: number;
   quantity: number;
   imageUrl: string | null;
+  bookType?: string;
 };
 
 const GUEST_CART_KEY = "cheapterCart";
@@ -37,6 +38,7 @@ export default function CheckoutPage() {
   const [cartItems, setCartItems] = useState<CheckoutItem[]>([]);
   const [newAddress, setNewAddress] = useState({ name: "", phone: "", streetAddress: "", city: "", zipCode: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGuest, setIsGuest] = useState(false);
 
   // Coupon states
   const [couponCode, setCouponCode] = useState("");
@@ -76,6 +78,9 @@ export default function CheckoutPage() {
         const loadedAddresses = profile.addresses || [];
         setAddresses(loadedAddresses);
         setSelectedAddressId(loadedAddresses[0]?.id ?? "new");
+        setIsGuest(false);
+      } else {
+        setIsGuest(true);
       }
 
       if (cartResponse.ok) {
@@ -91,6 +96,13 @@ export default function CheckoutPage() {
     loadCheckout();
     loadAvailableCoupons();
   }, []);
+
+  useEffect(() => {
+    const digitalOnly = cartItems.length > 0 && cartItems.every(item => item.bookType === "EBook");
+    if (digitalOnly && paymentMethod === "cod") {
+      setPaymentMethod("card");
+    }
+  }, [cartItems, paymentMethod]);
 
   const handleApplyCoupon = async () => {
     setCouponError("");
@@ -199,7 +211,9 @@ export default function CheckoutPage() {
     }
   }
 
-  const shippingFee = isFreeShipping ? 0 : (deliveryMethod === "express" ? 12 : 0);
+  const isDigitalOnly = cartItems.length > 0 && cartItems.every(item => item.bookType === "EBook");
+  const hasEBook = cartItems.some(item => item.bookType === "EBook");
+  const shippingFee = (isFreeShipping || isDigitalOnly) ? 0 : (deliveryMethod === "express" ? 12 : 0);
   const taxes = Number((Math.max(0, subtotal - discountAmount) * 0.08).toFixed(2));
   const total = Math.max(0, subtotal - discountAmount + shippingFee + taxes);
 
@@ -210,10 +224,10 @@ export default function CheckoutPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          shippingMethod: deliveryMethod,
+          shippingMethod: isDigitalOnly ? "digital" : deliveryMethod,
           paymentMethod,
-          addressId: selectedAddressId === "new" ? undefined : selectedAddressId,
-          address: selectedAddressId === "new" ? newAddress : undefined,
+          addressId: isDigitalOnly ? undefined : (selectedAddressId === "new" ? undefined : selectedAddressId),
+          address: isDigitalOnly ? undefined : (selectedAddressId === "new" ? newAddress : undefined),
           items: cartItems,
           couponCode: appliedCoupon?.code || undefined,
           discountAmount: discountAmount || undefined,
@@ -271,8 +285,20 @@ export default function CheckoutPage() {
             Secure Checkout
           </h1>
 
+          {/* Guest E-Book Warning */}
+          {isGuest && hasEBook && (
+            <div className="bg-orange-50 border border-orange-200 p-4 rounded-xl text-orange-800 text-sm flex items-start gap-3">
+              <ShieldCheck className="h-5 w-5 mt-0.5 shrink-0 text-orange-500" />
+              <div>
+                <p className="font-bold mb-1">พบรายการ E-book ในตะกร้าของคุณ</p>
+                <p>กรุณาเข้าสู่ระบบก่อนทำการสั่งซื้อ เนื่องจาก E-book จำเป็นต้องผูกกับบัญชีผู้ใช้เพื่อใช้อ่านในคลัง</p>
+              </div>
+            </div>
+          )}
+
           {/* 1 Shipping Address */}
-          <section className="flex flex-col gap-6">
+          {!isDigitalOnly && (
+            <section className="flex flex-col gap-6">
             <div className="flex items-center gap-3">
               <div className="w-6 h-6 rounded-full bg-[#e6dbcc] text-amber-900 flex items-center justify-center text-xs font-bold">1</div>
               <h2 className="text-xl font-serif text-stone-800">Shipping Address</h2>
@@ -349,9 +375,11 @@ export default function CheckoutPage() {
               )}
             </div>
           </section>
+          )}
 
           {/* 2 Delivery Method */}
-          <section className="flex flex-col gap-6">
+          {!isDigitalOnly && (
+            <section className="flex flex-col gap-6">
             <div className="flex items-center gap-3">
               <div className="w-6 h-6 rounded-full bg-[#e6dbcc] text-amber-900 flex items-center justify-center text-xs font-bold">2</div>
               <h2 className="text-xl font-serif text-stone-800">Delivery Method</h2>
@@ -387,11 +415,12 @@ export default function CheckoutPage() {
               </div>
             </div>
           </section>
+          )}
 
           {/* 3 Payment */}
           <section className="flex flex-col gap-6 mb-12 lg:mb-0">
             <div className="flex items-center gap-3">
-              <div className="w-6 h-6 rounded-full bg-[#e6dbcc] text-amber-900 flex items-center justify-center text-xs font-bold">3</div>
+              <div className="w-6 h-6 rounded-full bg-[#e6dbcc] text-amber-900 flex items-center justify-center text-xs font-bold">{isDigitalOnly ? '1' : '3'}</div>
               <h2 className="text-xl font-serif text-stone-800">Payment</h2>
             </div>
 
@@ -412,13 +441,15 @@ export default function CheckoutPage() {
                   <QrCode size={24} />
                   <span className="text-xs font-bold">QR PromptPay</span>
                 </div>
-                <div
-                  onClick={() => setPaymentMethod("cod")}
-                  className={`flex flex-col items-center justify-center gap-2 p-4 rounded border cursor-pointer transition-all ${paymentMethod === "cod" ? "border-[#8b5a45] bg-[#fbf9f6] text-[#8b5a45]" : "border-stone-200 bg-white text-stone-500 hover:border-stone-300"}`}
-                >
-                  <HandCoins size={24} />
-                  <span className="text-xs font-bold">Cash on Delivery</span>
-                </div>
+                {!isDigitalOnly && (
+                  <div
+                    onClick={() => setPaymentMethod("cod")}
+                    className={`flex flex-col items-center justify-center gap-2 p-4 rounded border cursor-pointer transition-all ${paymentMethod === "cod" ? "border-[#8b5a45] bg-[#fbf9f6] text-[#8b5a45]" : "border-stone-200 bg-white text-stone-500 hover:border-stone-300"}`}
+                  >
+                    <HandCoins size={24} />
+                    <span className="text-xs font-bold">Cash on Delivery</span>
+                  </div>
+                )}
               </div>
 
               {/* Payment Forms based on selection */}
@@ -517,7 +548,9 @@ export default function CheckoutPage() {
               <div className="flex items-center justify-between text-sm">
                 <span className="text-stone-500">Shipping</span>
                 <span className="text-stone-800 font-medium">
-                  {isFreeShipping ? (
+                  {isDigitalOnly ? (
+                    <span className="text-[#8b5a45] font-bold">Digital Delivery</span>
+                  ) : isFreeShipping ? (
                     <span className="text-[#4a7c59] font-bold">Free (คูปองส่งฟรี)</span>
                   ) : deliveryMethod === "express" ? (
                     "฿12.00"
@@ -600,7 +633,7 @@ export default function CheckoutPage() {
               </span>
             </div>
 
-            <button onClick={handleCompletePurchase} disabled={isSubmitting || cartItems.length === 0} className="w-full bg-[#8b5a45] hover:bg-[#724a38] text-white py-4 rounded font-bold text-sm transition-colors mt-2 shadow-sm disabled:opacity-60">
+            <button onClick={handleCompletePurchase} disabled={isSubmitting || cartItems.length === 0 || (isGuest && hasEBook)} className="w-full bg-[#8b5a45] hover:bg-[#724a38] text-white py-4 rounded font-bold text-sm transition-colors mt-2 shadow-sm disabled:opacity-60">
               {isSubmitting ? "Completing..." : "Complete Purchase"}
             </button>
 

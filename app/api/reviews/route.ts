@@ -54,13 +54,15 @@ export async function POST(req: Request) {
     const { bookId, orderId, rating, comment } = await req.json();
     if (!bookId || !rating) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
 
+    const parsedBookId = Number(bookId);
+
     // 🌟 เช็คว่า User เคยรีวิวสินค้านี้ใน Order นี้ไปหรือยัง
     if (orderId) {
       const existingReview = await prisma.review.findFirst({
         where: {
           userId: session.user.id,
           orderId: orderId, // 📌 หมายเหตุ: ถ้าใน Schema orderId เป็น Int ให้ใช้ Number(orderId) แทน
-          bookId: Number(bookId),
+          bookId: parsedBookId,
         },
       });
 
@@ -76,12 +78,29 @@ export async function POST(req: Request) {
     // 🌟 ถ้ายังไม่มี ค่อยสร้างรีวิวใหม่ และบันทึก orderId ลงฐานข้อมูล
     const newReview = await prisma.review.create({
       data: {
-        bookId: Number(bookId),
+        bookId: parsedBookId,
         orderId: orderId || null, 
         userId: session.user.id,
         rating: Number(rating),
         comment: comment || "",
       },
+    });
+
+    // Update book aggregate data
+    const allReviews = await prisma.review.findMany({
+      where: { bookId: parsedBookId }
+    });
+    
+    const totalReviews = allReviews.length;
+    const totalRating = allReviews.reduce((sum, rev) => sum + rev.rating, 0);
+    const averageRating = totalReviews > 0 ? (totalRating / totalReviews) : 0;
+
+    await prisma.book.update({
+      where: { id: parsedBookId },
+      data: {
+        rating: averageRating,
+        reviewCount: totalReviews
+      }
     });
 
     return NextResponse.json({ success: true, review: newReview }, { status: 201 });
@@ -97,7 +116,7 @@ export async function PUT(req: Request) {
     const session = await getServerSession(authOptions);
     if (!session || !session.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { reviewId, rating, comment } = await req.json();
+    const { reviewId, bookId, rating, comment } = await req.json();
     if (!reviewId || !rating) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
 
     const updatedReview = await prisma.review.update({
@@ -110,6 +129,26 @@ export async function PUT(req: Request) {
         comment: comment || "",
       },
     });
+
+    if (bookId) {
+      const parsedBookId = Number(bookId);
+      // Update book aggregate data
+      const allReviews = await prisma.review.findMany({
+        where: { bookId: parsedBookId }
+      });
+      
+      const totalReviews = allReviews.length;
+      const totalRating = allReviews.reduce((sum, rev) => sum + rev.rating, 0);
+      const averageRating = totalReviews > 0 ? (totalRating / totalReviews) : 0;
+
+      await prisma.book.update({
+        where: { id: parsedBookId },
+        data: {
+          rating: averageRating,
+          reviewCount: totalReviews
+        }
+      });
+    }
 
     return NextResponse.json({ success: true, review: updatedReview });
   } catch (error) {

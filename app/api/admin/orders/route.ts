@@ -8,8 +8,8 @@ const statusLabels: Record<OrderStatus, string> = {
   PENDING: "รอชำระเงิน",
   VERIFYING: "ตรวจสอบชำระเงิน",
   PREPARING: "รอแพ็ค",
-  SHIPPING: "รอจัดส่ง",
-  COMPLETED: "จัดส่งแล้ว",
+  SHIPPING: "จัดส่งบริษัทขนส่ง",
+  COMPLETED: "สำเร็จ",
   CANCELLED: "ยกเลิก",
   REFUNDED: "คืนเงิน",
 };
@@ -18,10 +18,8 @@ const labelToStatus: Record<string, OrderStatus> = {
   รอชำระเงิน: "PENDING",
   ตรวจสอบชำระเงิน: "VERIFYING",
   รอแพ็ค: "PREPARING",
-  เตรียมการจัดส่ง: "PREPARING",
-  รอจัดส่ง: "SHIPPING",
+  จัดส่งบริษัทขนส่ง: "SHIPPING",
   อยู่ระหว่างการจัดส่ง: "SHIPPING",
-  จัดส่งแล้ว: "COMPLETED",
   สำเร็จ: "COMPLETED",
   ยกเลิก: "CANCELLED",
   คืนเงิน: "REFUNDED",
@@ -91,6 +89,28 @@ export async function PATCH(req: Request) {
     },
     include: { items: true },
   });
+
+  // Grant E-Book access to the user's library if order is completed
+  if (nextStatus === "COMPLETED" && order.userId) {
+    for (const item of order.items) {
+      if (item.bookType === "EBook" && item.bookId) {
+        // Upsert to ensure no duplicate library entries
+        await prisma.userLibrary.upsert({
+          where: {
+            userId_bookId: {
+              userId: order.userId,
+              bookId: item.bookId,
+            }
+          },
+          update: {},
+          create: {
+            userId: order.userId,
+            bookId: item.bookId,
+          }
+        });
+      }
+    }
+  }
 
   return NextResponse.json({ order: serialize(order) });
 }

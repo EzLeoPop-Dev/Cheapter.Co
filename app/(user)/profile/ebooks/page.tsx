@@ -1,33 +1,49 @@
 import React from 'react';
 import { BookOpen, Download, Smartphone } from 'lucide-react';
 
-export default function EbooksPage() {
-  const ebooks = [
-    {
-      id: 1,
-      title: 'Digital Minimalism',
-      author: 'Cal Newport',
-      progress: 45,
-      lastRead: '2 วันที่แล้ว',
-      image: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80'
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { prisma } from "@/src/lib/prisma";
+import { redirect } from "next/navigation";
+import Link from "next/link";
+
+export default async function EbooksPage() {
+  const session = await getServerSession(authOptions);
+  
+  if (!session?.user?.id) {
+    redirect("/auth/login");
+  }
+
+  const libraryItems = await prisma.userLibrary.findMany({
+    where: { userId: session.user.id },
+    include: {
+      book: true,
     },
-    {
-      id: 2,
-      title: 'The Psychology of Money',
-      author: 'Morgan Housel',
-      progress: 100,
-      lastRead: '1 สัปดาห์ที่แล้ว',
-      image: 'https://images.unsplash.com/photo-1592496431122-2349e0fbc666?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80'
-    },
-    {
-      id: 3,
-      title: 'Deep Work',
-      author: 'Cal Newport',
-      progress: 12,
-      lastRead: 'เมื่อวานนี้',
-      image: 'https://images.unsplash.com/photo-1553729459-efe14ef6055d?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80'
-    }
-  ];
+    orderBy: { purchaseAt: "desc" },
+  });
+
+  const progressItems = await prisma.ebookProgress.findMany({
+    where: { userId: session.user.id },
+  });
+
+  const progressMap = new Map(progressItems.map(p => [p.bookId, p]));
+
+  const ebooks = libraryItems.map((item) => {
+    const progress = progressMap.get(item.bookId);
+    const lastReadStr = progress?.lastReadAt 
+      ? new Date(progress.lastReadAt).toLocaleDateString("th-TH", { year: "numeric", month: "short", day: "numeric" })
+      : "ยังไม่ได้เริ่มอ่าน";
+
+    return {
+      id: item.bookId,
+      title: item.book.title,
+      author: item.book.author,
+      progress: progress?.progressPercent || 0,
+      lastRead: lastReadStr,
+      image: item.book.image || "https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=200&auto=format&fit=crop",
+      fileUrl: item.book.ebookFile,
+    };
+  });
 
   return (
     <div className="space-y-6">
@@ -72,15 +88,30 @@ export default function EbooksPage() {
             </div>
             
             <div className="border-t border-gray-100 px-4 py-3 flex gap-2">
-              <button className="flex-1 bg-[#bc876e] hover:bg-[#a8745d] text-white py-2 rounded-lg text-sm font-medium transition-colors">
+              <Link href={`/reader/${book.id}`} className="flex-1 bg-[#bc876e] hover:bg-[#a8745d] text-white py-2 rounded-lg text-sm font-medium transition-colors text-center block">
                 อ่านต่อ
-              </button>
-              <button className="px-3 py-2 border border-gray-200 hover:bg-gray-50 text-gray-600 rounded-lg transition-colors">
-                <Download className="h-4 w-4" />
-              </button>
+              </Link>
+              {book.fileUrl && (
+                <a href={book.fileUrl} target="_blank" rel="noopener noreferrer" className="px-3 py-2 border border-gray-200 hover:bg-gray-50 text-gray-600 rounded-lg transition-colors flex items-center justify-center">
+                  <Download className="h-4 w-4" />
+                </a>
+              )}
             </div>
           </div>
         ))}
+
+        {ebooks.length === 0 && (
+          <div className="col-span-full py-16 flex flex-col items-center justify-center text-center bg-[#fefdfb] rounded-2xl border border-gray-100 shadow-sm">
+            <div className="w-16 h-16 bg-orange-50 text-orange-400 rounded-full flex items-center justify-center mb-4">
+              <BookOpen className="w-8 h-8" />
+            </div>
+            <h3 className="text-gray-900 font-bold mb-2">ยังไม่มี E-book ในคลัง</h3>
+            <p className="text-gray-500 text-sm mb-6 max-w-sm mx-auto">เลือกซื้อ E-book เล่มใหม่ที่คุณสนใจ เพื่อเริ่มต้นการอ่านได้เลยทันทีไม่ต้องรอจัดส่ง</p>
+            <Link href="/catalog" className="px-6 py-2.5 bg-[#8b5a45] hover:bg-[#724a38] text-white font-bold rounded-lg text-sm transition-colors shadow-sm">
+              ไปหน้าแคตตาล็อกหนังสือ
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   );
