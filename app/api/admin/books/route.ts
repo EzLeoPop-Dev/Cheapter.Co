@@ -148,6 +148,18 @@ export async function POST(request: NextRequest) {
               },
             }
           : {}),
+        ...(Array.isArray(body?.chapters) && bookType === "Manga"
+          ? {
+              episodes: {
+                create: body.chapters.map(ch => ({
+                  title: ch.title,
+                  isFree: Number(ch.price) === 0,
+                  pdfUrl: ch.pdfUrl || null,
+                  orderIndex: Number(ch.chapterNumber) || 1
+                }))
+              }
+            }
+          : {})
       },
       include: {
         category: {
@@ -158,20 +170,6 @@ export async function POST(request: NextRequest) {
         },
       },
     });
-
-    if (Array.isArray(body?.chapters) && created.bookType === "Manga") {
-      for (const ch of body.chapters) {
-        await prisma.bookEpisode.create({
-          data: {
-            bookId: created.id,
-            title: ch.title,
-            isFree: Number(ch.price) === 0,
-            pdfUrl: ch.pdfUrl || null,
-            orderIndex: Number(ch.chapterNumber) || 1
-          }
-        });
-      }
-    }
 
     return Response.json(
       {
@@ -196,6 +194,7 @@ export async function POST(request: NextRequest) {
     }
 
     console.error("POST /api/admin/books failed", error);
-    return Response.json({ message: "Unable to create book" }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : "Unable to create book";
+    return Response.json({ message: errorMessage }, { status: 500 });
   }
 }
