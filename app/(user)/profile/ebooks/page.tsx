@@ -26,7 +26,7 @@ export default async function EbooksPage() {
     where: { userId: session.user.id },
   });
 
-  const progressMap = new Map(progressItems.map(p => [p.bookId, p]));
+  const progressMap = new Map(progressItems.map((p: any) => [p.bookId, p]));
 
   const ebooks = libraryItems.map((item) => {
     const progress = progressMap.get(item.bookId);
