@@ -211,7 +211,14 @@ export default function AdminEditProductPage() {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    if (!formData.title || !formData.price || !formData.sku) return;
+    if (!formData.title || !formData.sku) {
+      alert("กรุณากรอกชื่อสินค้าและ SKU ให้ครบถ้วน");
+      return;
+    }
+    if (formData.type !== 'serial' && formData.price === '') {
+      alert("กรุณากรอกราคาสินค้า");
+      return;
+    }
     setIsSaving(true);
 
     try {
